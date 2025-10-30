@@ -1,7 +1,6 @@
 import 'dart:async';
-
-import 'package:eatyy/home_page.dart';
-import 'package:eatyy/login_screen.dart';
+import 'package:eatyy/screens/home_page.dart';
+import 'package:eatyy/screens/login/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 

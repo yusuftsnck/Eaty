@@ -29,33 +29,35 @@ class ProfilePage extends StatelessWidget {
       appBar: AppBar(title: const Text('Profil')),
       body: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            if (user.photoUrl != null)
-              CircleAvatar(
-                radius: 36,
-                backgroundImage: NetworkImage(user.photoUrl!),
-              )
-            else
-              const CircleAvatar(radius: 36, child: Icon(Icons.person)),
-            const SizedBox(height: 12),
-            Text(
-              user.displayName ?? 'Adsız Kullanıcı',
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 4),
-            Text(user.email, style: const TextStyle(color: Colors.grey)),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
+        child: Center(
+          child: Column(
+            children: [
+              if (user.photoUrl != null)
+                CircleAvatar(
+                  radius: 36,
+                  backgroundImage: NetworkImage(user.photoUrl!),
+                )
+              else
+                const CircleAvatar(radius: 36, child: Icon(Icons.person)),
+              const SizedBox(height: 12),
+              Text(
+                user.displayName ?? 'Adsız Kullanıcı',
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 4),
+              Text(user.email, style: const TextStyle(color: Colors.grey)),
+
+              const Spacer(),
+
+              FilledButton.icon(
                 onPressed: () => _signOut(context),
                 icon: const Icon(Icons.logout),
                 label: const Text('Çıkış Yap'),
               ),
-            ),
-            SizedBox(height: 30),
-          ],
+
+              SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
     );
