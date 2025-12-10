@@ -23,9 +23,32 @@ class _FoodHomePageState extends State<FoodHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_currentIndex]), centerTitle: true),
+      appBar: AppBar(
+        iconTheme: const IconThemeData(
+          color: Colors
+              .white, // Geri butonu, menü butonu gibi ikonları beyaz yapar
+        ),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF7A18), Color(0xFFE60012)], // İstenen renkler
+              begin: Alignment.topLeft, // Sol üstten
+              end: Alignment.bottomRight, // Sağ alta doğru
+            ),
+          ),
+        ),
+        title: Text(
+          _titles[_currentIndex],
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            color: Colors.white,
+          ),
+        ),
+      ),
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.deepOrange,
         currentIndex: _currentIndex,
         onTap: (value) => setState(() {
           _currentIndex = value;
