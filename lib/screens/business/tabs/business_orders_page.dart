@@ -1,170 +1,296 @@
+import 'package:eatyy/screens/business/business_order_detail_page.dart';
+import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-class BusinessOrdersPage extends StatelessWidget {
-  const BusinessOrdersPage({super.key});
+class BusinessOrdersPage extends StatefulWidget {
+  final GoogleSignInAccount user;
+  const BusinessOrdersPage({super.key, required this.user});
+
+  @override
+  State<BusinessOrdersPage> createState() => _BusinessOrdersPageState();
+}
+
+class _BusinessOrdersPageState extends State<BusinessOrdersPage>
+    with SingleTickerProviderStateMixin {
+  final _api = ApiService();
+  List<dynamic> _allOrders = [];
+  bool _loading = true;
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    setState(() => _loading = true);
+    final orders = await _api.getBusinessOrders(widget.user.email);
+    if (mounted)
+      setState(() {
+        _allOrders = orders;
+        _loading = false;
+      });
+  }
+
+  // Siparişleri duruma göre filtrele
+  List<dynamic> _filterOrders(List<String> statuses) {
+    return _allOrders.where((o) => statuses.contains(o['status'])).toList();
+  }
+
+  Future<void> _quickUpdate(int orderId, String status) async {
+    await _api.updateOrderStatus(orderId, status);
+    _fetchOrders();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Sipariş: $status")));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final orders = [
-      _OrderRow(
-        table: 'Çevrimiçi',
-        name: 'Burger Menü x2',
-        price: '₺280',
-        statusColor: const Color(0xFFFFC107),
-        statusText: 'Hazırlanıyor',
-      ),
-      _OrderRow(
-        table: 'Masa 4',
-        name: 'Karışık Pizza',
-        price: '₺190',
-        statusColor: const Color(0xFF4CAF50),
-        statusText: 'Teslim',
-      ),
-      _OrderRow(
-        table: 'Paket',
-        name: 'Tavuk Dürüm',
-        price: '₺120',
-        statusColor: const Color(0xFFE53935),
-        statusText: 'Yeni',
-      ),
-      _OrderRow(
-        table: 'Çevrimiçi',
-        name: 'Falafel Bowl',
-        price: '₺140',
-        statusColor: const Color(0xFF3F51B5),
-        statusText: 'Yolda',
-      ),
-    ];
-
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-        children: [
-          const _SectionTitle('Siparişler'),
-          const SizedBox(height: 10),
-          ...orders.map(
-            (order) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: _OrderCard(order: order),
-            ),
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F7FB),
+      appBar: AppBar(
+        title: const Text(
+          "Sipariş Yönetimi",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.deepOrange,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.deepOrange,
+          tabs: [
+            Tab(text: "Gelen (${_filterOrders(['Onay Bekliyor']).length})"),
+            Tab(text: "Mutfak (${_filterOrders(['Hazırlanıyor']).length})"),
+            Tab(text: "Geçmiş"),
+          ],
+        ),
+        actions: [
+          IconButton(onPressed: _fetchOrders, icon: const Icon(Icons.refresh)),
         ],
       ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Colors.black87,
-        fontWeight: FontWeight.w700,
-        fontSize: 16,
-      ),
-    );
-  }
-}
-
-class _OrderRow {
-  final String table;
-  final String name;
-  final String price;
-  final Color statusColor;
-  final String statusText;
-  const _OrderRow({
-    required this.table,
-    required this.name,
-    required this.price,
-    required this.statusColor,
-    required this.statusText,
-  });
-}
-
-class _OrderCard extends StatelessWidget {
-  final _OrderRow order;
-  const _OrderCard({required this.order});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF1E6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: const Icon(Icons.receipt_long, color: Color(0xFFE85B2B)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
               children: [
-                Text(
-                  order.table,
-                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                _buildOrderList(
+                  _filterOrders(['Onay Bekliyor']),
+                  isIncoming: true,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  order.name,
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w700,
-                  ),
+
+                _buildOrderList(
+                  _filterOrders(['Hazırlanıyor']),
+                  isKitchen: true,
+                ),
+
+                _buildOrderList(
+                  _filterOrders(['Yolda', 'Teslim Edildi', 'İptal Edildi']),
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildOrderList(
+    List<dynamic> orders, {
+    bool isIncoming = false,
+    bool isKitchen = false,
+  }) {
+    if (orders.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 60, color: Colors.grey.shade300),
+            const SizedBox(height: 10),
+            const Text(
+              "Bu alanda sipariş yok",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: orders.length,
+      itemBuilder: (context, index) {
+        final order = orders[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: order.statusColor.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BusinessOrderDetailPage(order: order),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                child: Text(
-                  order.statusText,
-                  style: TextStyle(
-                    color: order.statusColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+              ).then((_) => _fetchOrders());
+            },
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Sipariş #${order['id']}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            order['created_at'].toString().substring(11, 16),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        "${order['total_price']} ₺",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.deepOrange,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                order.price,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.grey,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          order['customer_address'] ?? "Adres girilmedi",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                if (isIncoming)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _showRejectDialog(order['id']),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            child: const Text("Reddet"),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                _quickUpdate(order['id'], "Hazırlanıyor"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text("Onayla"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (isKitchen)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _quickUpdate(order['id'], "Yolda"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.delivery_dining),
+                        label: const Text("Kuryeye Teslim Et"),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showRejectDialog(int orderId) async {
+    final reasonCtrl = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Siparişi Reddet"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Bu siparişi reddetmek istediğinize emin misiniz?"),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonCtrl,
+              decoration: const InputDecoration(
+                labelText: "Red Sebebi",
+                hintText: "Malzeme kalmadı, Adres dışı...",
+                border: OutlineInputBorder(),
               ),
-            ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("İptal"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _api.updateOrderStatus(
+                orderId,
+                "İptal Edildi",
+                reason: reasonCtrl.text,
+              );
+              _fetchOrders();
+            },
+            child: const Text("Reddet"),
           ),
         ],
       ),

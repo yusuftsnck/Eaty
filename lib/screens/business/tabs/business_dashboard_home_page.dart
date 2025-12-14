@@ -1,43 +1,137 @@
+import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-class BusinessDashboardHomePage extends StatelessWidget {
+class BusinessDashboardHomePage extends StatefulWidget {
   final GoogleSignInAccount user;
   const BusinessDashboardHomePage({super.key, required this.user});
+
+  @override
+  State<BusinessDashboardHomePage> createState() =>
+      _BusinessDashboardHomePageState();
+}
+
+class _BusinessDashboardHomePageState extends State<BusinessDashboardHomePage> {
+  final _api = ApiService();
+  bool _loading = true;
+
+  // İstatistik Değişkenleri
+  double _dailyRevenue = 0.0;
+  int _todayOrderCount = 0;
+
+  // Rozet Sayacı Değişkenleri
+  int _activeCount = 0; // "Yeni Sipariş" durumu
+  int _preparingCount = 0; // "Hazırlanıyor" durumu
+  int _deliveredCount = 0; // "Teslim" durumu
+
+  // Liste
+  List<dynamic> _recentOrders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    final orders = await _api.getBusinessOrders(widget.user.email);
+
+    if (!mounted) return;
+
+    double revenue = 0;
+    int todayCount = 0;
+    int active = 0;
+    int preparing = 0;
+    int delivered = 0;
+
+    final now = DateTime.now();
+
+    for (var order in orders) {
+      // Sipariş tarihini parse et
+      DateTime orderDate =
+          DateTime.tryParse(order['created_at']) ?? DateTime(2000);
+
+      // Bugün mü kontrolü (Yıl, Ay, Gün eşitliği)
+      bool isToday =
+          orderDate.year == now.year &&
+          orderDate.month == now.month &&
+          orderDate.day == now.day;
+
+      // Durum kontrolü (Backend'deki status stringlerine göre)
+      String status = order['status'] ?? "Yeni Sipariş";
+
+      if (status == "Yeni Sipariş") active++;
+      if (status == "Hazırlanıyor") preparing++;
+      if (status == "Teslim") delivered++;
+
+      // Günlük Ciro ve Sayı Hesaplama
+      if (isToday) {
+        revenue += (order['total_price'] as num).toDouble();
+        todayCount++;
+      }
+    }
+
+    setState(() {
+      _recentOrders = orders.take(5).toList(); // Son 5 siparişi göster
+      _dailyRevenue = revenue;
+      _todayOrderCount = todayCount;
+      _activeCount = active;
+      _preparingCount = preparing;
+      _deliveredCount = delivered;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.of(context).padding;
 
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Header(user: user, topPadding: padding.top),
-            const SizedBox(height: 18),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  _SectionTitle('Güncel Durum'),
-                  SizedBox(height: 10),
-                  _StatsRow(),
-                  SizedBox(height: 22),
-                  _SectionTitle('Hızlı İşlemler'),
-                  SizedBox(height: 12),
-                  _QuickActionsGrid(),
-                  SizedBox(height: 22),
-                  _SectionTitle('Bugünkü Siparişler'),
-                  SizedBox(height: 12),
-                  _OrdersPreview(),
-                  SizedBox(height: 24),
-                ],
+      child: RefreshIndicator(
+        onRefresh: _fetchDashboardData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Header(
+                user: widget.user,
+                topPadding: padding.top,
+                activeCount: _activeCount,
+                preparingCount: _preparingCount,
+                deliveredCount: _deliveredCount,
               ),
-            ),
-          ],
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _SectionTitle('Güncel Durum'),
+                    const SizedBox(height: 10),
+                    _StatsRow(
+                      dailyRevenue: _dailyRevenue,
+                      todayCount: _todayOrderCount,
+                    ),
+                    const SizedBox(height: 22),
+                    const _SectionTitle('Hızlı İşlemler'),
+                    const SizedBox(height: 12),
+                    const _QuickActionsGrid(),
+                    const SizedBox(height: 22),
+                    const _SectionTitle('Son Siparişler'),
+                    const SizedBox(height: 12),
+                    _OrdersPreview(orders: _recentOrders),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -47,7 +141,17 @@ class BusinessDashboardHomePage extends StatelessWidget {
 class _Header extends StatelessWidget {
   final GoogleSignInAccount user;
   final double topPadding;
-  const _Header({required this.user, required this.topPadding});
+  final int activeCount;
+  final int preparingCount;
+  final int deliveredCount;
+
+  const _Header({
+    required this.user,
+    required this.topPadding,
+    required this.activeCount,
+    required this.preparingCount,
+    required this.deliveredCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,20 +224,20 @@ class _Header extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 _HeaderBadge(
-                  label: 'Aktif',
-                  value: '12',
-                  icon: Icons.receipt_long,
+                  label: 'Yeni',
+                  value: '$activeCount',
+                  icon: Icons.notifications_active,
                 ),
                 _HeaderBadge(
                   label: 'Hazırlanıyor',
-                  value: '4',
+                  value: '$preparingCount',
                   icon: Icons.local_dining,
                 ),
                 _HeaderBadge(
                   label: 'Teslim',
-                  value: '8',
+                  value: '$deliveredCount',
                   icon: Icons.delivery_dining,
                 ),
               ],
@@ -208,27 +312,32 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+  final double dailyRevenue;
+  final int todayCount;
+
+  const _StatsRow({required this.dailyRevenue, required this.todayCount});
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
+      children: [
         Expanded(
           child: _StatCard(
             title: 'Günlük Ciro',
-            value: '₺4.320',
-            trend: '+12%',
-            color: Color(0xFF4CAF50),
+            value: '₺${dailyRevenue.toStringAsFixed(2)}',
+            trend: 'Bugün',
+            color: const Color(0xFF4CAF50),
+            icon: Icons.attach_money,
           ),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
             title: 'Yeni Sipariş',
-            value: '7',
+            value: '$todayCount',
             trend: 'Bugün',
-            color: Color(0xFF3F51B5),
+            color: const Color(0xFF3F51B5),
+            icon: Icons.shopping_bag,
           ),
         ),
       ],
@@ -241,11 +350,14 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String trend;
   final Color color;
+  final IconData icon;
+
   const _StatCard({
     required this.title,
     required this.value,
     required this.trend,
     required this.color,
+    required this.icon,
   });
 
   @override
@@ -275,7 +387,7 @@ class _StatCard extends StatelessWidget {
             value,
             style: const TextStyle(
               color: Colors.black87,
-              fontSize: 22,
+              fontSize: 20, // Biraz küçülttüm sığması için
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -289,7 +401,7 @@ class _StatCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.trending_up, color: color, size: 16),
+                Icon(icon, color: color, size: 16),
                 const SizedBox(width: 6),
                 Text(
                   trend,
@@ -309,12 +421,11 @@ class _QuickActionsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Statik kalabilir veya yönlendirmeler eklenebilir
     final actions = [
       _QuickAction(icon: Icons.fastfood, label: 'Menü'),
       _QuickAction(icon: Icons.receipt_long, label: 'Siparişler'),
       _QuickAction(icon: Icons.local_offer, label: 'Kampanyalar'),
-      _QuickAction(icon: Icons.table_bar, label: 'Masalar'),
-      _QuickAction(icon: Icons.people_alt, label: 'Personel'),
       _QuickAction(icon: Icons.analytics, label: 'Raporlar'),
     ];
 
@@ -378,7 +489,6 @@ class _QuickActionCard extends StatelessWidget {
               ),
             ),
           ),
-          const Icon(Icons.chevron_right, color: Colors.black26),
         ],
       ),
     );
@@ -386,33 +496,34 @@ class _QuickActionCard extends StatelessWidget {
 }
 
 class _OrdersPreview extends StatelessWidget {
-  const _OrdersPreview();
+  final List<dynamic> orders;
+  const _OrdersPreview({required this.orders});
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "Hazırlanıyor":
+        return const Color(0xFFFFC107);
+      case "Teslim":
+        return const Color(0xFF4CAF50);
+      case "Yeni Sipariş":
+        return const Color(0xFFE53935);
+      default:
+        return Colors.blue;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final orders = [
-      _OrderRow(
-        table: 'Çevrimiçi',
-        name: 'Burger Menü x2',
-        price: '₺280',
-        statusColor: const Color(0xFFFFC107),
-        statusText: 'Hazırlanıyor',
-      ),
-      _OrderRow(
-        table: 'Masa 4',
-        name: 'Karışık Pizza',
-        price: '₺190',
-        statusColor: const Color(0xFF4CAF50),
-        statusText: 'Teslim',
-      ),
-      _OrderRow(
-        table: 'Paket',
-        name: 'Tavuk Dürüm',
-        price: '₺120',
-        statusColor: const Color(0xFFE53935),
-        statusText: 'Yeni',
-      ),
-    ];
+    if (orders.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(child: Text("Henüz sipariş bulunmuyor.")),
+      );
+    }
 
     return Column(
       children: orders
@@ -455,15 +566,16 @@ class _OrdersPreview extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            order.table,
+                            order['customer_email'] ?? 'Müşteri',
                             style: const TextStyle(
                               color: Colors.black54,
                               fontSize: 12,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            order.name,
+                            "Sipariş #${order['id']}",
                             style: const TextStyle(
                               color: Colors.black87,
                               fontWeight: FontWeight.w600,
@@ -477,7 +589,9 @@ class _OrdersPreview extends StatelessWidget {
                       children: [
                         Container(
                           decoration: BoxDecoration(
-                            color: order.statusColor.withOpacity(0.14),
+                            color: _getStatusColor(
+                              order['status'] ?? "",
+                            ).withOpacity(0.14),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           padding: const EdgeInsets.symmetric(
@@ -485,9 +599,9 @@ class _OrdersPreview extends StatelessWidget {
                             vertical: 6,
                           ),
                           child: Text(
-                            order.statusText,
+                            order['status'] ?? "Bilinmiyor",
                             style: TextStyle(
-                              color: order.statusColor,
+                              color: _getStatusColor(order['status'] ?? ""),
                               fontWeight: FontWeight.w600,
                               fontSize: 12,
                             ),
@@ -495,7 +609,7 @@ class _OrdersPreview extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          order.price,
+                          "₺${order['total_price']}",
                           style: const TextStyle(
                             color: Colors.black87,
                             fontWeight: FontWeight.bold,
@@ -511,19 +625,4 @@ class _OrdersPreview extends StatelessWidget {
           .toList(),
     );
   }
-}
-
-class _OrderRow {
-  final String table;
-  final String name;
-  final String price;
-  final Color statusColor;
-  final String statusText;
-  const _OrderRow({
-    required this.table,
-    required this.name,
-    required this.price,
-    required this.statusColor,
-    required this.statusText,
-  });
 }

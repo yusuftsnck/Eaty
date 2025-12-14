@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:flutter/material.dart';
@@ -14,11 +14,14 @@ class RecipesHomePage extends StatefulWidget {
 
 class _RecipesHomePageState extends State<RecipesHomePage> {
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _aiPromptController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   bool _aiLoading = false;
   String? _aiText;
   String? _aiError;
+  String? _lastPrompt;
+  int _tabIndex = 0;
 
   late final List<_RecipeCardData> _recipes;
   final List<_RecipeCardData> _community = [];
@@ -45,15 +48,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
         imageUrl:
             'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
       ),
-      const _RecipeCardData(
-        title: 'Sezar Salatası',
-        subtitle: 'Ferahlık ve doyuruculuk bir arada',
-        time: '20 dk',
-        servings: '3 kişilik',
-        difficulty: 'Kolay',
-        imageUrl:
-            'https://images.unsplash.com/photo-1604908177520-402d8363f67f?auto=format&fit=crop&w=800&q=80',
-      ),
+
       const _RecipeCardData(
         title: 'Izgara Somon',
         subtitle: 'Protein dolu hafif bir akşam yemeği',
@@ -67,18 +62,30 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
   }
 
   LinearGradient get _brandGradient => const LinearGradient(
-        colors: [Color(0xFF8B00FF), Color(0xFFFF006C)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
+    colors: [Color(0xFF8B00FF), Color(0xFFFF006C)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  String get _defaultIngredients =>
+      'domates, mozzarella, fesleğen, zeytinyağı, tavuk, makarna';
+
+  List<String> get _promptSuggestions => const [
+    'Tavuk göğsü, kapya biber, pirinç',
+    'Vejetaryen 30 dakikalık akşam yemeği',
+    'Glutensiz makarna için hafif sos',
+    'Yüksek proteinli kahvaltı fikri',
+  ];
 
   List<_RecipeCardData> get _filteredPopular {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) return _recipes;
     return _recipes
-        .where((r) =>
-            r.title.toLowerCase().contains(query) ||
-            r.subtitle.toLowerCase().contains(query))
+        .where(
+          (r) =>
+              r.title.toLowerCase().contains(query) ||
+              r.subtitle.toLowerCase().contains(query),
+        )
         .toList();
   }
 
@@ -86,43 +93,54 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) return _community;
     return _community
-        .where((r) =>
-            r.title.toLowerCase().contains(query) ||
-            r.subtitle.toLowerCase().contains(query))
+        .where(
+          (r) =>
+              r.title.toLowerCase().contains(query) ||
+              r.subtitle.toLowerCase().contains(query),
+        )
         .toList();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _aiPromptController.dispose();
     super.dispose();
   }
 
-  Future<void> _runAiChef({Uint8List? imageBytes}) async {
-    final pantryText = _searchController.text.trim().isEmpty
-        ? 'domates, mozzarella, fesleğen, zeytinyağı, tavuk, makarna'
-        : _searchController.text.trim();
+  Future<void> _runAiChef({Uint8List? imageBytes, String? prompt}) async {
+    if (!mounted) return;
+    final promptText = prompt ?? _aiPromptController.text.trim();
+    final pantryText = promptText.isEmpty ? _defaultIngredients : promptText;
 
     setState(() {
       _aiLoading = true;
       _aiText = null;
       _aiError = null;
+      _lastPrompt = pantryText;
+      if (_aiPromptController.text.trim().isEmpty) {
+        _aiPromptController.text = pantryText;
+      }
     });
 
     try {
       final model = FirebaseAI.vertexAI().generativeModel(
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         systemInstruction: Content.system(
-          'Sen yaratıcı bir şefsin. Yalnızca tarif önerisi, porsiyon, süre, zorluk '
-          've kısa adımları paylaş. Cevapları Türkçe ve net tut.',
+          'Sen yaratıcı bir şefsin. Üç farklı tarif öner, her biri için şu formatı kullan: '
+          'Başlık; Malzemeler (miktarlı madde listesi, varsa görselde algıladıklarını da ekle); '
+          'Adımlar (4-5 kısa ama detaylı adım); Süre; Porsiyon; Zorluk. '
+          'Cevapları Türkçe, net ve uygulanabilir tut.',
         ),
       );
 
       final promptParts = <Part>[
         TextPart(
-          'Eldeki malzemeler veya fotoğraftaki içeriklerle yapılabilecek 3 tarif öner. '
-          'Malzemeler: $pantryText. Her tarif için isim, 3 adımlık yöntem, '
-          'tahmini süre, porsiyon ve zorluk seviyesini belirt.',
+          'Eldeki malzemelerle yapılabilecek 3 tarif öner. '
+          'Malzemeler: $pantryText. Her tarif için: '
+          '- Malzemeler: miktarlarla birlikte madde madde yaz. '
+          '- Adımlar: en az 4-5 net adım ver, detaylandır. '
+          '- Süre, porsiyon ve zorluk seviyesini ekle.',
         ),
         if (imageBytes != null) InlineDataPart('image/jpeg', imageBytes),
       ];
@@ -131,14 +149,17 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
         Content.multi(promptParts),
       ]);
 
+      if (!mounted) return;
       setState(() {
         _aiText = response.text ?? 'AI şu an bir cevap üretemedi.';
       });
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _aiError = 'AI asistan yanıtı alınamadı: $error';
       });
     } finally {
+      if (!mounted) return;
       setState(() {
         _aiLoading = false;
       });
@@ -154,6 +175,11 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
 
     if (image == null) return;
     final bytes = await image.readAsBytes();
+    if (!mounted) return;
+    if (_aiPromptController.text.trim().isEmpty) {
+      _aiPromptController.text =
+          'Fotoğraftaki malzemelerle ne yapılır? Uygun üç tarif öner.';
+    }
     await _runAiChef(imageBytes: bytes);
   }
 
@@ -166,8 +192,14 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
 
     if (image == null) return;
     final bytes = await image.readAsBytes();
+    if (!mounted) return;
+    if (_aiPromptController.text.trim().isEmpty) {
+      _aiPromptController.text =
+          'Fotoğraftaki malzemelerle ne yapılır? Uygun üç tarif öner.';
+    }
     await _runAiChef(imageBytes: bytes);
   }
+
   Future<void> _openCreateRecipeSheet() async {
     final formKey = GlobalKey<FormState>();
     final title = TextEditingController();
@@ -299,7 +331,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                           _RecipeCardData(
                             title: title.text.trim(),
                             subtitle: subtitle.text.trim().isEmpty
-                                ? 'Topluluktan yeni bir tarif'
+                                ? "Topluluktan yeni bir tarif"
                                 : subtitle.text.trim(),
                             time: time.text.trim(),
                             servings: servings.text.trim(),
@@ -323,7 +355,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
       },
     );
 
-    if (newRecipe != null) {
+    if (newRecipe != null && mounted) {
       setState(() {
         _community.insert(0, newRecipe);
       });
@@ -336,15 +368,6 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
     await Share.share(content, subject: 'Eaty Tarif Paylaşımı');
   }
 
-  Future<void> _shareCommunity() async {
-    if (_community.isEmpty) {
-      if (_recipes.isEmpty) return;
-      await _shareRecipe(_recipes.first);
-      return;
-    }
-    await _shareRecipe(_community.first);
-  }
-
   String _formatRecipeForShare(_RecipeCardData recipe) {
     return [
       recipe.title,
@@ -352,8 +375,9 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
       'Süre: ${recipe.time}',
       'Kişi: ${recipe.servings}',
       'Zorluk: ${recipe.difficulty}',
-      if (_aiText != null) 'AI önerisi:\n$_aiText',
-    ].where((line) => line.isNotEmpty).join('\n');
+      if (_lastPrompt != null) 'Girdi: $_lastPrompt',
+      if (_aiText != null) 'AI önerisi:\\n$_aiText',
+    ].where((line) => line.isNotEmpty).join('\\n');
   }
 
   @override
@@ -363,13 +387,33 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreateRecipeSheet,
         backgroundColor: const Color(0xFF8B00FF),
-        label: const Text(
-          'Tarif ekle',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        label: Text(
+          _tabIndex == 2 ? 'Tarif defterine ekle' : 'Tarif ekle',
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         icon: const Icon(Icons.add),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _tabIndex,
+        onTap: (i) => setState(() => _tabIndex = i),
+        selectedItemColor: const Color(0xFF8B00FF),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.explore_outlined),
+            label: 'Keşfet',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome),
+            label: 'AI Şef',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book_outlined),
+            label: 'Tarif Defteri',
+          ),
+        ],
+      ),
       body: SafeArea(
+        top: false,
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -382,42 +426,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                   children: [
                     _buildQuickActions(),
                     const SizedBox(height: 12),
-                    _buildAiScannerCard(),
-                    const SizedBox(height: 12),
-                    if (_aiLoading || _aiText != null || _aiError != null)
-                      _buildAiOutput(),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Popüler Tarifler',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1E1F4B),
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    ..._filteredPopular.map((r) => _buildRecipeCard(
-                          r,
-                          onShare: () => _shareRecipe(r),
-                        )),
-                    if (_community.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        'Topluluk Paylaşımları',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1E1F4B),
-                                ),
-                      ),
-                      const SizedBox(height: 8),
-                      ..._filteredCommunity.map(
-                        (r) => _buildRecipeCard(
-                          r,
-                          badge: 'Topluluk',
-                          onShare: () => _shareRecipe(r),
-                        ),
-                      ),
-                    ],
+                    _buildSectionContent(),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -454,8 +463,10 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(14),
@@ -518,8 +529,10 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                       color: Colors.grey.shade500,
                       fontWeight: FontWeight.w500,
                     ),
-                    prefixIcon:
-                        const Icon(Icons.search, color: Color(0xFF8B00FF)),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: Color(0xFF8B00FF),
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -584,7 +597,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Malzeme listesi ya da fotoğraf yükle, Gemini önerilerini anında al.',
+                  'Malzeme listeni yaz, Gemini üç öneriyi hemen versin.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
@@ -600,15 +613,14 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: const Color(0xFF8B00FF),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               elevation: 0,
             ),
             child: const Text(
-              'Hemen Dene',
+              'Hemen dene',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -625,7 +637,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
         _QuickActionPill(
           icon: Icons.explore,
           label: 'Tarif keşfi',
-          onTap: () {},
+          onTap: () => setState(() => _tabIndex = 0),
         ),
         _QuickActionPill(
           icon: Icons.add_circle_outline,
@@ -633,25 +645,261 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
           onTap: _openCreateRecipeSheet,
         ),
         _QuickActionPill(
-          icon: Icons.share_outlined,
-          label: 'Topluluk paylaşımı',
-          onTap: _shareCommunity,
-        ),
-        _QuickActionPill(
-          icon: Icons.bolt,
+          icon: Icons.auto_awesome,
           label: 'AI önerileri',
-          onTap: _aiLoading ? null : _runAiChef,
+          onTap: () => setState(() => _tabIndex = 1),
         ),
         _QuickActionPill(
-          icon: Icons.camera_alt_outlined,
-          label: 'Fotoğrafla öner',
-          onTap: _aiLoading ? null : _captureFromCamera,
+          icon: Icons.bookmark_border,
+          label: 'Tarif defterim',
+          onTap: () => setState(() => _tabIndex = 2),
         ),
       ],
     );
   }
 
-  Widget _buildAiScannerCard() {
+  Widget _buildSectionContent() {
+    switch (_tabIndex) {
+      case 1:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildAiPromptCard(),
+            const SizedBox(height: 12),
+            _buildPhotoSuggestionCard(),
+            const SizedBox(height: 12),
+            if (_aiLoading || _aiText != null || _aiError != null)
+              _buildAiOutput(),
+          ],
+        );
+      case 2:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tarif Defterim',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1E1F4B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_community.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAEAF2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1E9FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.bookmark_border,
+                        color: Color(0xFF8B00FF),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Henüz tarif defterin boş. Favorilerini eklemek için aşağıdaki butonu kullan.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF4A4B67),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ..._filteredCommunity.map(
+              (r) => _buildRecipeCard(
+                r,
+                badge: 'Defter',
+                onShare: () => _shareRecipe(r),
+              ),
+            ),
+          ],
+        );
+      default:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Popüler Tarifler',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1E1F4B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ..._filteredPopular.map(
+              (r) => _buildRecipeCard(r, onShare: () => _shareRecipe(r)),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'AI önerileri ve kişisel defter için alttaki sekmeleri kullan.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6C6D83)),
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildAiPromptCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: _brandGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gemini tarif asistanı',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E1F4B),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Malzemeleri yaz ya da hedefini belirt, AI üç tarif fikri üretsin.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF5B5C73),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _aiPromptController,
+            minLines: 2,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText:
+                  'Örn: 20 dakikada tavuk, mantar ve krema ile akşam yemeği',
+              filled: true,
+              fillColor: const Color(0xFFF6F7FB),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              suffixIcon: _aiPromptController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: _aiLoading
+                          ? null
+                          : () {
+                              _aiPromptController.clear();
+                              setState(() {});
+                            },
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _promptSuggestions
+                .map(
+                  (text) => ActionChip(
+                    label: Text(text),
+                    onPressed: _aiLoading
+                        ? null
+                        : () {
+                            _aiPromptController.text = text;
+                            setState(() {});
+                          },
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: _aiLoading
+                      ? null
+                      : () {
+                          _aiPromptController.text = _defaultIngredients;
+                          setState(() {});
+                        },
+                  icon: const Icon(Icons.format_list_bulleted),
+                  label: const Text('Örnek doldur'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _aiLoading
+                      ? null
+                      : () => _runAiChef(prompt: _aiPromptController.text),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B00FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.bolt),
+                  label: Text(
+                    _aiLoading ? 'Hazırlanıyor...' : 'Gemini\'den iste',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoSuggestionCard() {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -670,11 +918,13 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4ECFF),
+              color: const Color(0xFFF1E9FF),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.photo_camera_back_outlined,
-                color: Color(0xFF8B00FF)),
+            child: const Icon(
+              Icons.photo_camera_back_outlined,
+              color: Color(0xFF8B00FF),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -682,16 +932,16 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
-                  'Malzemelerinin fotoğrafını çek',
+                  'Malzemeyi fotoğrafla tara',
                   style: TextStyle(
-                    fontSize: 15,
                     fontWeight: FontWeight.w700,
+                    fontSize: 15,
                     color: Color(0xFF1E1F4B),
                   ),
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Gemini, görüntüden malzemeleri okuyup sana uygun tarifler önersin.',
+                  'Görüntüdeki malzemeleri algılayıp buna göre üç tarif fikri sunar.',
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF5B5C73),
@@ -708,17 +958,17 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B00FF),
                   foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 0,
                 ),
                 icon: const Icon(Icons.camera_alt, size: 18),
                 label: const Text('Kamera'),
               ),
-              const SizedBox(height: 6),
               TextButton(
                 onPressed: _aiLoading ? null : _pickFromGallery,
                 child: const Text('Galeriden yükle'),
@@ -733,6 +983,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
   Widget _buildAiOutput() {
     final hasError = _aiError != null;
     final text = hasError ? _aiError! : (_aiText ?? 'Öneri hazırlanıyor...');
+    final prompt = _lastPrompt;
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -772,6 +1023,17 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                   ),
                 ),
                 const SizedBox(height: 6),
+                if (prompt != null && prompt.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      'Girdi: $prompt',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6C6D83),
+                      ),
+                    ),
+                  ),
                 if (_aiLoading)
                   const LinearProgressIndicator(
                     minHeight: 4,
@@ -794,6 +1056,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
       ),
     );
   }
+
   Widget _buildRecipeCard(
     _RecipeCardData recipe, {
     String? badge,
@@ -876,18 +1139,20 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      _InfoChip(
-                        icon: Icons.schedule,
-                        label: recipe.time,
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _InfoChip(icon: Icons.schedule, label: recipe.time),
+                            _InfoChip(
+                              icon: Icons.group_outlined,
+                              label: recipe.servings,
+                            ),
+                            _DifficultyChip(label: recipe.difficulty),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 6),
-                      _InfoChip(
-                        icon: Icons.group_outlined,
-                        label: recipe.servings,
-                      ),
-                      const SizedBox(width: 6),
-                      _DifficultyChip(label: recipe.difficulty),
-                      const Spacer(),
                       if (onShare != null)
                         IconButton(
                           onPressed: onShare,
@@ -907,11 +1172,7 @@ class _RecipesHomePageState extends State<RecipesHomePage> {
 }
 
 class _QuickActionPill extends StatelessWidget {
-  const _QuickActionPill({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _QuickActionPill({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
@@ -967,10 +1228,7 @@ class _InfoChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF4A4B67),
-            ),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF4A4B67)),
           ),
         ],
       ),
@@ -1058,8 +1316,10 @@ class _InputField extends StatelessWidget {
             validator: validator,
             decoration: InputDecoration(
               hintText: hint,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
