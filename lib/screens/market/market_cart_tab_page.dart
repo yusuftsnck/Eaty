@@ -1,10 +1,18 @@
+import 'package:eatyy/screens/cart/cart_page.dart';
 import 'package:flutter/material.dart';
 
 class MarketCartTabPage extends StatelessWidget {
-  const MarketCartTabPage({super.key});
+  final VoidCallback? onClose;
+  final String? customerEmail;
+
+  const MarketCartTabPage({super.key, this.onClose, this.customerEmail});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: Center(child: Text('Sepetim')));
+    return CartPage(
+      category: 'market',
+      onClose: onClose,
+      customerEmail: customerEmail,
+    );
   }
 }

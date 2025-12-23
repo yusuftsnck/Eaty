@@ -1,8 +1,18 @@
+import 'dart:convert';
+
+import 'package:eatyy/models/business_user.dart';
 import 'package:eatyy/screens/business/tabs/business_dashboard_page.dart';
 import 'package:eatyy/services/api_service.dart';
+import 'package:eatyy/services/business_session_service.dart';
+import 'package:eatyy/services/session_role_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:eatyy/screens/business/auth/models/tr_location_data.dart';
+import 'package:eatyy/screens/business/auth/widgets/auth_switcher.dart';
+import 'package:eatyy/screens/business/auth/widgets/dropdown_field.dart';
+import 'package:eatyy/screens/business/auth/widgets/labeled_field.dart';
+import 'package:eatyy/screens/business/auth/widgets/location_block.dart';
 
 class BusinessAuthPage extends StatefulWidget {
   const BusinessAuthPage({super.key});
@@ -20,7 +30,10 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
 
   final _loginEmailController = TextEditingController();
   final _loginPasswordController = TextEditingController();
+  final _registerPasswordController = TextEditingController();
+  final _registerPasswordConfirmController = TextEditingController();
   bool _obscure = true;
+  bool _requireRegisterPassword = false;
 
   final _authNameController = TextEditingController(); // Yetkili Ad
   final _authSurnameController = TextEditingController(); // Yetkili Soyad
@@ -50,22 +63,31 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
   ];
   String? _selectedKitchenType;
 
+  // Seçeneklerin olduğu liste
+  final List<String> _businessTypes = ['Restoran', 'Market'];
+
+  // Seçilen değeri tutacak değişken
+  String? _selectedBusinessType;
+
   // (il/ilçe/mahalle)
   TrLocationData? _loc;
   String? _selectedCity;
   String? _selectedDistrict;
-  String? _selectedNeighborhood;
+  final _neighborhoodController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadLocations();
+    _checkSession();
   }
 
   @override
   void dispose() {
     _loginEmailController.dispose();
     _loginPasswordController.dispose();
+    _registerPasswordController.dispose();
+    _registerPasswordConfirmController.dispose();
 
     _authNameController.dispose();
     _authSurnameController.dispose();
@@ -74,6 +96,7 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
     _companyNameController.dispose();
     _tcknController.dispose();
     _restaurantNameController.dispose();
+    _neighborhoodController.dispose();
     _openAddressController.dispose();
     super.dispose();
   }
@@ -121,18 +144,64 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
     return true;
   }
 
+  String? _mapBusinessTypeToCategory(String? type) {
+    if (type == 'Market') return 'market';
+    if (type == 'Restoran') return 'food';
+    return null;
+  }
+
+  String _composeAddress() {
+    final parts = <String>[];
+    final open = _openAddressController.text.trim();
+    if (open.isNotEmpty) parts.add(open);
+    final neighborhood = _neighborhoodController.text.trim();
+    if (neighborhood.isNotEmpty) {
+      parts.add(neighborhood);
+    }
+    if ((_selectedDistrict ?? '').trim().isNotEmpty) {
+      parts.add(_selectedDistrict!.trim());
+    }
+    if ((_selectedCity ?? '').trim().isNotEmpty) {
+      parts.add(_selectedCity!.trim());
+    }
+    return parts.join(', ');
+  }
+
   Future<void> _loadLocations() async {
-    setState(() {
-      _loc = TrLocationData.demo();
-      _error = _error;
+    try {
+      final raw = await rootBundle.loadString('assets/il_ilce.json');
+      final decoded = jsonDecode(raw);
+      final loc = TrLocationData.fromIlIlceJson(decoded);
+      if (!mounted) return;
+      setState(() => _loc = loc);
+    } catch (_) {}
+  }
+
+  void _checkSession() {
+    final sessionUser = BusinessSessionService.instance.user.value;
+    if (sessionUser == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BusinessDashboardPage(user: sessionUser),
+        ),
+      );
     });
+    SessionRoleService.instance.setRole('business');
   }
 
   Future<void> _handleGoogleSignIn() async {
     if (_loading) return;
 
-    // Kayıt modundaysak formu kontrol et
-    if (!_isLogin && !_formKey.currentState!.validate()) return;
+    if (!_isLogin) {
+      _requireRegisterPassword = false;
+      if (!_formKey.currentState!.validate()) return;
+    }
+
+    final previousRole = SessionRoleService.instance.role.value;
+    await SessionRoleService.instance.setRole('business');
 
     setState(() {
       _loading = true;
@@ -148,25 +217,36 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
           : await signIn.attemptLightweightAuthentication();
 
       if (account == null) throw Exception('Giriş iptal edildi.');
+      final accountEmail = account.email.toLowerCase();
 
       final api = ApiService();
+      Map<String, dynamic>? profile;
 
       if (!_isLogin) {
+        final category = _mapBusinessTypeToCategory(_selectedBusinessType);
+        if (category == null) {
+          throw Exception("Lütfen işletme türünü seçin.");
+        }
+        final kitchenType = category == 'food' ? _selectedKitchenType : null;
+        final password = _registerPasswordController.text.trim();
         final success = await api.registerBusiness({
-          "email": account.email,
+          "email": accountEmail,
+          "name": _restaurantNameController.text.trim(),
           "authorized_name": _authNameController.text.trim(),
           "authorized_surname": _authSurnameController.text.trim(),
           "phone": _phoneController.text.trim(),
+          "address": _composeAddress(),
           "company_name": _companyNameController.text.trim(),
           "tckn": _tcknController.text.trim(),
           "restaurant_name": _restaurantNameController.text.trim(),
-          "kitchen_type": _selectedKitchenType,
+          "kitchen_type": kitchenType,
           "city": _selectedCity,
           "district": _selectedDistrict,
-          "neighborhood": _selectedNeighborhood,
+          "neighborhood": _neighborhoodController.text.trim(),
           "open_address": _openAddressController.text.trim(),
-          "category": "food",
+          "category": category,
           "photo_url": account.photoUrl,
+          if (password.isNotEmpty) "password": password,
         });
 
         if (!success) {
@@ -174,22 +254,37 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
             "Kayıt başarısız. Bu e-posta zaten kayıtlı olabilir.",
           );
         }
+        profile = await api.getBusiness(accountEmail);
       } else {
-        // --- GİRİŞ (GOOGLE) ---
-        final biz = await api.getBusiness(account.email);
-        if (biz == null) {
+        profile = await api.getBusiness(accountEmail);
+        if (profile == null) {
           throw Exception(
             "Bu hesapla kayıtlı işletme bulunamadı. Lütfen önce kayıt olun.",
           );
         }
       }
 
+      if (profile == null) {
+        throw Exception("İşletme bilgileri alınamadı.");
+      }
+
+      final user = BusinessUser.fromProfile(
+        profile,
+        isGoogle: true,
+        fallbackName: account.displayName,
+        fallbackPhotoUrl: account.photoUrl,
+      );
+      await BusinessSessionService.instance.setUser(user);
+      await SessionRoleService.instance.setRole('business');
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => BusinessDashboardPage(user: account)),
+        MaterialPageRoute(builder: (_) => BusinessDashboardPage(user: user)),
       );
     } catch (e) {
+      if (previousRole != 'business') {
+        await SessionRoleService.instance.setRole(previousRole);
+      }
       if (!mounted) return;
       setState(() => _error = e.toString().replaceAll("Exception:", "").trim());
     } finally {
@@ -200,8 +295,8 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
   Future<void> _handleEmailPasswordLogin() async {
     if (_loading) return;
 
-    final email = _loginEmailController.text.trim();
-    final pass = _loginPasswordController.text;
+    final email = _loginEmailController.text.trim().toLowerCase();
+    final pass = _loginPasswordController.text.trim();
 
     if (!_isValidEmail(email)) {
       setState(() => _error = 'Geçerli bir e-posta girin.');
@@ -220,16 +315,14 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
     try {
       final api = ApiService();
 
-      final biz = await api.getBusiness(email);
-      if (biz == null) {
-        throw Exception(
-          "Bu e-postayla kayıtlı işletme yok. Lütfen kayıt olun.",
-        );
-      }
-
-      throw Exception(
-        "Email/Şifre giriş UI hazır. DashboardPage(user) Google hesabı bekliyor. "
-        "DashboardPage’i business modeli kabul edecek şekilde güncelleyelim.",
+      final profile = await api.loginBusiness(email, pass);
+      final user = BusinessUser.fromProfile(profile, isGoogle: false);
+      await BusinessSessionService.instance.setUser(user);
+      await SessionRoleService.instance.setRole('business');
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => BusinessDashboardPage(user: user)),
       );
     } catch (e) {
       setState(() => _error = e.toString().replaceAll("Exception:", "").trim());
@@ -240,9 +333,17 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
 
   Future<void> _handleEmailPasswordRegister() async {
     if (_loading) return;
+    _requireRegisterPassword = true;
     if (!_formKey.currentState!.validate()) return;
 
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
+    final category = _mapBusinessTypeToCategory(_selectedBusinessType);
+    if (category == null) {
+      setState(() => _error = "Lütfen işletme türünü seçin.");
+      return;
+    }
+    final kitchenType = category == 'food' ? _selectedKitchenType : null;
+    final password = _registerPasswordController.text.trim();
 
     setState(() {
       _loading = true;
@@ -254,22 +355,26 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
 
       final success = await api.registerBusiness({
         "email": email,
+        "name": _restaurantNameController.text.trim(),
         "authorized_name": _authNameController.text.trim(),
         "authorized_surname": _authSurnameController.text.trim(),
         "phone": _phoneController.text.trim(),
+        "address": _composeAddress(),
         "company_name": _companyNameController.text.trim(),
         "tckn": _tcknController.text.trim(),
         "restaurant_name": _restaurantNameController.text.trim(),
-        "kitchen_type": _selectedKitchenType,
+        "kitchen_type": kitchenType,
         "city": _selectedCity,
         "district": _selectedDistrict,
-        "neighborhood": _selectedNeighborhood,
+        "neighborhood": _neighborhoodController.text.trim(),
         "open_address": _openAddressController.text.trim(),
-        "category": "food",
+        "category": category,
+        "password": password,
       });
 
-      if (!success)
+      if (!success) {
         throw Exception("Kayıt başarısız. E-posta zaten kayıtlı olabilir.");
+      }
 
       // Kayıt başarılı mesajı
       if (!mounted) return;
@@ -363,7 +468,7 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
                             ),
                             const SizedBox(height: 18),
 
-                            _AuthSwitcher(
+                            AuthSwitcher(
                               isLogin: _isLogin,
                               onChanged: (val) => setState(() {
                                 _isLogin = val;
@@ -413,7 +518,7 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
         ),
         const SizedBox(height: 12),
 
-        _LabeledField(
+        LabeledField(
           label: 'E-posta',
           hint: 'ornek@firma.com',
           controller: _loginEmailController,
@@ -425,7 +530,7 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
             return null;
           },
         ),
-        _LabeledField(
+        LabeledField(
           label: 'Şifre',
           hint: '••••••••',
           controller: _loginPasswordController,
@@ -504,19 +609,19 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
           const SizedBox(height: 12),
 
           _sectionTitle('Şirket Yetkilisi Bilgileri'),
-          _LabeledField(
+          LabeledField(
             label: 'Ad',
             hint: 'Yetkili adı',
             controller: _authNameController,
             validator: (v) => _required(v, 'Ad'),
           ),
-          _LabeledField(
+          LabeledField(
             label: 'Soyad',
             hint: 'Yetkili soyadı',
             controller: _authSurnameController,
             validator: (v) => _required(v, 'Soyad'),
           ),
-          _LabeledField(
+          LabeledField(
             label: 'Cep Telefonu',
             hint: '0555 123 45 67',
             controller: _phoneController,
@@ -528,12 +633,13 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
             validator: (v) {
               final r = _required(v, 'Cep Telefonu');
               if (r != null) return r;
-              if (!_isValidTrPhone(v!))
+              if (!_isValidTrPhone(v!)) {
                 return 'Geçerli TR telefon girin (05xxxxxxxxx)';
+              }
               return null;
             },
           ),
-          _LabeledField(
+          LabeledField(
             label: 'E-posta Adresi',
             hint: 'ornek.yemek@gmail.com',
             controller: _emailController,
@@ -545,16 +651,15 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
               return null;
             },
           ),
-
           const SizedBox(height: 6),
           _sectionTitle('İşletme ve Konum Bilgileri'),
-          _LabeledField(
+          LabeledField(
             label: 'Şirket Adı',
             hint: 'Dönercik Ltd.',
             controller: _companyNameController,
             validator: (v) => _required(v, 'Şirket Adı'),
           ),
-          _LabeledField(
+          LabeledField(
             label: 'TCKN',
             hint: '11 haneli',
             controller: _tcknController,
@@ -566,53 +671,115 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
             validator: (v) {
               final r = _required(v, 'TCKN');
               if (r != null) return r;
-              if ((v!.replaceAll(RegExp(r'\D'), '')).length != 11)
+              if ((v!.replaceAll(RegExp(r'\D'), '')).length != 11) {
                 return 'TCKN 11 haneli olmalı';
+              }
               if (!_isValidTckn(v)) return 'Geçersiz TCKN';
               return null;
             },
           ),
-          _LabeledField(
-            label: 'Restoran Adı',
-            hint: 'Dönercik',
-            controller: _restaurantNameController,
-            validator: (v) => _required(v, 'Restoran Adı'),
+          DropdownField(
+            label: 'İşletme Türü',
+            value: _selectedBusinessType,
+            hint: 'Seçiniz',
+            items: _businessTypes,
+            onChanged: (v) {
+              setState(() {
+                _selectedBusinessType = v;
+                if (_selectedBusinessType == 'Market') {
+                  _selectedKitchenType = null;
+                }
+              });
+            },
+            validator: (v) =>
+                (v == null || v.isEmpty) ? 'Lütfen işletme türünü seçin' : null,
           ),
 
-          _DropdownField(
+          LabeledField(
+            label: 'İşletme Adı',
+            hint: '',
+            controller: _restaurantNameController,
+            validator: (v) => _required(v, 'İşletme Adı'),
+          ),
+
+          DropdownField(
             label: 'Mutfak Türü',
             value: _selectedKitchenType,
-            hint: 'Seçiniz (Döner, Kebap, Pizza...)',
+            hint: 'Seçiniz',
             items: _kitchenTypes,
             onChanged: (v) => setState(() => _selectedKitchenType = v),
-            validator: (v) =>
-                (v == null || v.isEmpty) ? 'Mutfak türü seçin' : null,
+            validator: (v) {
+              if (_selectedBusinessType == 'Market') return null;
+              return (v == null || v.isEmpty) ? 'Mutfak türü seçin' : null;
+            },
           ),
 
-          _LocationBlock(
+          LocationBlock(
             loc: _loc,
             city: _selectedCity,
             district: _selectedDistrict,
-            neighborhood: _selectedNeighborhood,
+            neighborhoodController: _neighborhoodController,
             onCityChanged: (v) => setState(() {
               _selectedCity = v;
               _selectedDistrict = null;
-              _selectedNeighborhood = null;
+              _neighborhoodController.clear();
             }),
             onDistrictChanged: (v) => setState(() {
               _selectedDistrict = v;
-              _selectedNeighborhood = null;
-            }),
-            onNeighborhoodChanged: (v) => setState(() {
-              _selectedNeighborhood = v;
+              _neighborhoodController.clear();
             }),
           ),
 
-          _LabeledField(
+          LabeledField(
             label: 'Açık Adres',
-            hint: 'Cadde, sokak, no, kat, daire...',
+            hint: 'Cadde, sokak, no',
             controller: _openAddressController,
             validator: (v) => _required(v, 'Açık Adres'),
+          ),
+
+          _sectionTitle('İşletme Yönetim Paneli Giriş Bilgileri'),
+
+          LabeledField(
+            label: 'Şifre',
+            hint: '••••••••',
+            controller: _registerPasswordController,
+            obscureText: _obscure,
+            suffix: IconButton(
+              onPressed: () => setState(() => _obscure = !_obscure),
+              icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+            ),
+            validator: (v) {
+              if (!_requireRegisterPassword &&
+                  (v == null || v.trim().isEmpty)) {
+                return null;
+              }
+              final r = _required(v, 'Şifre');
+              if (r != null) return r;
+              if (v!.length < 6) return 'Şifre en az 6 karakter olmalı';
+              return null;
+            },
+          ),
+          LabeledField(
+            label: 'Şifreyi onaylayın',
+            hint: '••••••••',
+            controller: _registerPasswordConfirmController,
+            obscureText: _obscure,
+            suffix: IconButton(
+              onPressed: () => setState(() => _obscure = !_obscure),
+              icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+            ),
+            validator: (v) {
+              if (!_requireRegisterPassword &&
+                  (v == null || v.trim().isEmpty)) {
+                return null;
+              }
+              final r = _required(v, 'Şifre');
+              if (r != null) return r;
+              if (v != _registerPasswordController.text) {
+                return 'Şifreler eşleşmiyor';
+              }
+              return null;
+            },
           ),
 
           const SizedBox(height: 10),
@@ -692,355 +859,6 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AuthSwitcher extends StatelessWidget {
-  final bool isLogin;
-  final ValueChanged<bool> onChanged;
-  const _AuthSwitcher({required this.isLogin, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F2F6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          _buildTab(
-            context,
-            title: 'Giriş Yap',
-            selected: isLogin,
-            value: true,
-          ),
-          _buildTab(
-            context,
-            title: 'Kayıt Ol',
-            selected: !isLogin,
-            value: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Expanded _buildTab(
-    BuildContext context, {
-    required String title,
-    required bool selected,
-    required bool value,
-  }) {
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => onChanged(value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.black87 : Colors.black54,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LabeledField extends StatelessWidget {
-  final String label;
-  final String hint;
-  final TextInputType? keyboardType;
-  final TextEditingController? controller;
-  final String? Function(String?)? validator;
-  final List<TextInputFormatter>? inputFormatters;
-  final bool obscureText;
-  final Widget? suffix;
-
-  const _LabeledField({
-    required this.label,
-    required this.hint,
-    this.keyboardType,
-    this.controller,
-    this.validator,
-    this.inputFormatters,
-    this.obscureText = false,
-    this.suffix,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            obscureText: obscureText,
-            inputFormatters: inputFormatters,
-            validator:
-                validator ??
-                (value) =>
-                    (value == null || value.isEmpty) ? '$label gerekli' : null,
-            decoration: InputDecoration(
-              hintText: hint,
-              suffixIcon: suffix,
-              filled: true,
-              fillColor: const Color(0xFFF3F4F6),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  final String label;
-  final String? value;
-  final String hint;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
-  final String? Function(String?)? validator;
-
-  const _DropdownField({
-    required this.label,
-    required this.value,
-    required this.hint,
-    required this.items,
-    required this.onChanged,
-    this.validator,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            value: value,
-            items: items
-                .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
-                .toList(),
-            onChanged: onChanged,
-            validator: validator,
-            decoration: InputDecoration(
-              hintText: hint,
-              filled: true,
-              fillColor: const Color(0xFFF3F4F6),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LocationBlock extends StatelessWidget {
-  final TrLocationData? loc;
-  final String? city;
-  final String? district;
-  final String? neighborhood;
-  final ValueChanged<String?> onCityChanged;
-  final ValueChanged<String?> onDistrictChanged;
-  final ValueChanged<String?> onNeighborhoodChanged;
-
-  const _LocationBlock({
-    required this.loc,
-    required this.city,
-    required this.district,
-    required this.neighborhood,
-    required this.onCityChanged,
-    required this.onDistrictChanged,
-    required this.onNeighborhoodChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cities = loc?.cities.map((c) => c.name).toList() ?? const <String>[];
-    final selectedCity = loc?.cities.where((c) => c.name == city).toList();
-    final districts = (selectedCity?.isNotEmpty == true)
-        ? selectedCity!.first.districts.map((d) => d.name).toList()
-        : const <String>[];
-
-    final selectedDistrict = (selectedCity?.isNotEmpty == true)
-        ? selectedCity!.first.districts
-              .where((d) => d.name == district)
-              .toList()
-        : <TrDistrict>[];
-
-    final neighborhoods = (selectedDistrict.isNotEmpty)
-        ? selectedDistrict.first.neighborhoods
-        : const <String>[];
-
-    return Column(
-      children: [
-        _DropdownField(
-          label: 'İl',
-          value: city,
-          hint: (loc == null) ? 'Yükleniyor...' : 'İl seçin',
-          items: cities,
-          onChanged: onCityChanged,
-          validator: (v) => (v == null || v.isEmpty) ? 'İl seçin' : null,
-        ),
-        _DropdownField(
-          label: 'İlçe',
-          value: district,
-          hint: 'İlçe seçin',
-          items: districts,
-          onChanged: onDistrictChanged,
-          validator: (v) => (v == null || v.isEmpty) ? 'İlçe seçin' : null,
-        ),
-        _DropdownField(
-          label: 'Mahalle',
-          value: neighborhood,
-          hint: 'Mahalle seçin',
-          items: neighborhoods,
-          onChanged: onNeighborhoodChanged,
-          validator: (v) => (v == null || v.isEmpty) ? 'Mahalle seçin' : null,
-        ),
-      ],
-    );
-  }
-}
-
-class TrLocationData {
-  final List<TrCity> cities;
-  TrLocationData({required this.cities});
-
-  factory TrLocationData.fromJson(Map<String, dynamic> json) {
-    final list = (json['cities'] as List<dynamic>)
-        .map((e) => TrCity.fromJson(e as Map<String, dynamic>))
-        .toList();
-    return TrLocationData(cities: list);
-  }
-
-  // Demo veri
-  factory TrLocationData.demo() {
-    return TrLocationData(
-      cities: [
-        TrCity(
-          name: 'Muğla',
-          districts: [
-            TrDistrict(
-              name: 'Menteşe',
-              neighborhoods: ['Kötekli Mh.', 'Orhaniye Mh.'],
-            ),
-            TrDistrict(
-              name: 'Bodrum',
-              neighborhoods: ['Gümbet Mh.', 'Bitez Mh.'],
-            ),
-          ],
-        ),
-        TrCity(
-          name: 'İstanbul',
-          districts: [
-            TrDistrict(
-              name: 'Kadıköy',
-              neighborhoods: ['Caferağa Mh.', 'Fenerbahçe Mh.'],
-            ),
-            TrDistrict(
-              name: 'Şişli',
-              neighborhoods: ['Mecidiyeköy Mh.', 'Harbiye Mh.'],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class TrCity {
-  final String name;
-  final List<TrDistrict> districts;
-  TrCity({required this.name, required this.districts});
-
-  factory TrCity.fromJson(Map<String, dynamic> json) {
-    return TrCity(
-      name: json['name'] as String,
-      districts: (json['districts'] as List<dynamic>)
-          .map((e) => TrDistrict.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-}
-
-class TrDistrict {
-  final String name;
-  final List<String> neighborhoods;
-  TrDistrict({required this.name, required this.neighborhoods});
-
-  factory TrDistrict.fromJson(Map<String, dynamic> json) {
-    return TrDistrict(
-      name: json['name'] as String,
-      neighborhoods: (json['neighborhoods'] as List<dynamic>).cast<String>(),
     );
   }
 }

@@ -1,12 +1,15 @@
+import 'package:eatyy/models/app_user.dart';
 import 'package:eatyy/screens/food/food_page.dart';
 import 'package:eatyy/screens/market/market_page.dart';
 import 'package:eatyy/screens/profile_page.dart';
 import 'package:eatyy/screens/recipes/recipes_home_page.dart';
+import 'package:eatyy/screens/addresses/addresses_page.dart';
+import 'package:eatyy/services/address_service.dart';
+import 'package:eatyy/models/user_address.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class HomePage extends StatelessWidget {
-  final GoogleSignInAccount user;
+  final AppUser user;
   const HomePage({super.key, required this.user});
 
   @override
@@ -33,14 +36,27 @@ class HomePage extends StatelessWidget {
               ),
               padding: EdgeInsets.fromLTRB(20, padding.top + 12, 20, 18),
               child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  Center(
-                    child: const Text(
-                      'Eaty',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.w700,
+                  const Text(
+                    'Eaty',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 40,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: _AddressSelector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddressesPage(),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -84,7 +100,9 @@ class HomePage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => FoodHomePage()),
+                  MaterialPageRoute(
+                    builder: (context) => FoodHomePage(user: user),
+                  ),
                 );
               },
             ),
@@ -93,16 +111,15 @@ class HomePage extends StatelessWidget {
               title: "Market",
               description: "Taze ürünler kapınızda",
               icon: Icons.local_grocery_store,
-              colors: const [
-                Color(0xFF28D06C), // Sol - daha açık yeşil
-                Color(0xFF009966),
-              ],
+              colors: const [Color(0xFF28D06C), Color(0xFF009966)],
               imageUrl:
                   'https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=800&q=80',
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => MarketHomePage()),
+                  MaterialPageRoute(
+                    builder: (context) => MarketHomePage(user: user),
+                  ),
                 );
               },
             ),
@@ -227,4 +244,51 @@ Widget _buildCategoryCard(
       ),
     ),
   );
+}
+
+class _AddressSelector extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddressSelector({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<UserAddress?>(
+      valueListenable: AddressService.instance.selected,
+      builder: (context, selected, _) {
+        final title = selected?.headerTitle ?? 'Adres seç';
+        final subtitle = selected?.headerSubtitle ?? 'Konumunu belirle';
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.location_on, color: Colors.white, size: 25),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 9,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 9),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

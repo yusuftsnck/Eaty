@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   //Emulator: 10.0.2.2,
-  //static const String baseUrl = "http://10.255.131.88:8000"; //A24
-  static const String baseUrl =
-      "https://eaty-backend-877604661855.europe-west3.run.app";
+  static const String baseUrl = "http://10.255.131.88:8000"; //A24
+  //static const String baseUrl =
+  //   "https://eaty-api-877604661855.europe-west1.run.app";
   // İşletme Kaydı
   Future<bool> registerBusiness(Map<String, dynamic> data) async {
     try {
@@ -20,6 +20,32 @@ class ApiService {
     } catch (e) {
       print("Register Error: $e");
       return false;
+    }
+  }
+
+  // İşletme Email/Şifre Giriş
+  Future<Map<String, dynamic>> loginBusiness(
+    String email,
+    String password,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/business/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"email": email, "password": password}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      String message = "Giriş başarısız";
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        message = body['detail']?.toString() ?? message;
+      } catch (_) {}
+      throw Exception(message);
+    } catch (e) {
+      print("Login Error: $e");
+      rethrow;
     }
   }
 
@@ -111,6 +137,21 @@ class ApiService {
     return [];
   }
 
+  //  Müşteri Siparişleri
+  Future<List<dynamic>> getCustomerOrders(String email) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/orders/customer/$email'),
+      );
+      if (response.statusCode == 200) {
+        return List<dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      print("Get Customer Orders Error: $e");
+    }
+    return [];
+  }
+
   //  Ürün Güncelleme
   Future<bool> updateProduct(
     int productId,
@@ -193,20 +234,38 @@ class ApiService {
 
   // Profil Bilgilerini Güncelleme
   Future<bool> updateBusinessProfile(
-    String email,
-    String address,
-    String phone,
-    String workingHours,
-  ) async {
+    String email, {
+    String? address,
+    String? phone,
+    String? photoUrl,
+    double? minOrderAmount,
+    int? deliveryTimeMins,
+    double? deliveryRadiusKm,
+    double? latitude,
+    double? longitude,
+    String? workingHours,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (address != null) payload['address'] = address;
+    if (phone != null) payload['phone'] = phone;
+    if (photoUrl != null) payload['photo_url'] = photoUrl;
+    if (minOrderAmount != null) payload['min_order_amount'] = minOrderAmount;
+    if (deliveryTimeMins != null) {
+      payload['delivery_time_mins'] = deliveryTimeMins;
+    }
+    if (deliveryRadiusKm != null) {
+      payload['delivery_radius_km'] = deliveryRadiusKm;
+    }
+    if (latitude != null) payload['latitude'] = latitude;
+    if (longitude != null) payload['longitude'] = longitude;
+    if (workingHours != null) payload['working_hours'] = workingHours;
+    if (payload.isEmpty) return false;
+
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/business/$email/profile'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "address": address,
-          "phone": phone,
-          "working_hours": workingHours,
-        }),
+        body: jsonEncode(payload),
       );
       return response.statusCode == 200;
     } catch (e) {

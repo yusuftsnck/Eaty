@@ -1,6 +1,5 @@
-import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:eatyy/models/business_user.dart';
 
 import 'business_dashboard_home_page.dart';
 import 'business_menu_page.dart';
@@ -8,7 +7,7 @@ import 'business_orders_page.dart';
 import 'business_profile_page.dart';
 
 class BusinessDashboardPage extends StatefulWidget {
-  final GoogleSignInAccount user;
+  final BusinessUser user;
   const BusinessDashboardPage({super.key, required this.user});
 
   @override
@@ -16,30 +15,7 @@ class BusinessDashboardPage extends StatefulWidget {
 }
 
 class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
-  final _api = ApiService();
   int _currentIndex = 0;
-  bool _isOpen = true; // Dükkan durumu
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchStatus();
-  }
-
-  Future<void> _fetchStatus() async {
-    final biz = await _api.getBusiness(widget.user.email);
-    if (biz != null && mounted) {
-      setState(() => _isOpen = biz['is_open'] ?? true);
-    }
-  }
-
-  Future<void> _toggleStatus(bool value) async {
-    setState(() => _isOpen = value);
-    await _api.updateBusinessStatus(widget.user.email, value);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(value ? "Restoran AÇILDI" : "Restoran KAPATILDI")),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,32 +35,6 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F7FB),
-        // Üst kısımda "Açık/Kapalı" butonu
-        appBar: _currentIndex == 0
-            ? AppBar(
-                title: const Text("Kontrol Paneli"),
-                actions: [
-                  Row(
-                    children: [
-                      Text(
-                        _isOpen ? "AÇIK" : "KAPALI",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _isOpen ? Colors.green : Colors.red,
-                        ),
-                      ),
-                      Switch(
-                        value: _isOpen,
-                        activeColor: Colors.green,
-                        inactiveThumbColor: Colors.red,
-                        onChanged: _toggleStatus,
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                ],
-              )
-            : null,
         body: IndexedStack(index: _currentIndex, children: pages),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,

@@ -36,15 +36,17 @@ class _BusinessOrderDetailPageState extends State<BusinessOrderDetailPage> {
 
     if (success) {
       setState(() => _currentStatus = newStatus);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Durum güncellendi")));
+      }
     } else {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Hata oluştu")));
+      }
     }
     setState(() => _updating = false);
   }
@@ -84,7 +86,7 @@ class _BusinessOrderDetailPageState extends State<BusinessOrderDetailPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: _statuses.contains(_currentStatus)
+                    initialValue: _statuses.contains(_currentStatus)
                         ? _currentStatus
                         : _statuses.first,
                     decoration: const InputDecoration(

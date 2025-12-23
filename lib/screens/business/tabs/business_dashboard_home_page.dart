@@ -1,9 +1,9 @@
+import 'package:eatyy/models/business_user.dart';
 import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class BusinessDashboardHomePage extends StatefulWidget {
-  final GoogleSignInAccount user;
+  final BusinessUser user;
   const BusinessDashboardHomePage({super.key, required this.user});
 
   @override
@@ -85,6 +85,7 @@ class _BusinessDashboardHomePageState extends State<BusinessDashboardHomePage> {
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.of(context).padding;
+    final label = widget.user.category == 'market' ? 'Market' : 'Restoran';
 
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -101,6 +102,7 @@ class _BusinessDashboardHomePageState extends State<BusinessDashboardHomePage> {
             children: [
               _Header(
                 user: widget.user,
+                businessLabel: label,
                 topPadding: padding.top,
                 activeCount: _activeCount,
                 preparingCount: _preparingCount,
@@ -139,7 +141,8 @@ class _BusinessDashboardHomePageState extends State<BusinessDashboardHomePage> {
 }
 
 class _Header extends StatelessWidget {
-  final GoogleSignInAccount user;
+  final BusinessUser user;
+  final String businessLabel;
   final double topPadding;
   final int activeCount;
   final int preparingCount;
@@ -147,6 +150,7 @@ class _Header extends StatelessWidget {
 
   const _Header({
     required this.user,
+    required this.businessLabel,
     required this.topPadding,
     required this.activeCount,
     required this.preparingCount,
@@ -185,12 +189,12 @@ class _Header extends StatelessWidget {
                   vertical: 8,
                 ),
                 child: Row(
-                  children: const [
-                    Icon(Icons.shield, size: 16, color: Colors.white),
-                    SizedBox(width: 6),
+                  children: [
+                    const Icon(Icons.shield, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
                     Text(
-                      'Restoran Yönetimi',
-                      style: TextStyle(
+                      '$businessLabel Yönetimi',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
@@ -202,7 +206,7 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'Merhaba, ${user.displayName ?? 'Restoran'}',
+            'Merhaba, ${user.name ?? businessLabel}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 26,
@@ -421,7 +425,6 @@ class _QuickActionsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Statik kalabilir veya yönlendirmeler eklenebilir
     final actions = [
       _QuickAction(icon: Icons.fastfood, label: 'Menü'),
       _QuickAction(icon: Icons.receipt_long, label: 'Siparişler'),

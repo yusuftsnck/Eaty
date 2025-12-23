@@ -1,10 +1,10 @@
 import 'package:eatyy/screens/business/business_order_detail_page.dart';
 import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:eatyy/models/business_user.dart';
 
 class BusinessOrdersPage extends StatefulWidget {
-  final GoogleSignInAccount user;
+  final BusinessUser user;
   const BusinessOrdersPage({super.key, required this.user});
 
   @override
@@ -21,18 +21,19 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchOrders();
   }
 
   Future<void> _fetchOrders() async {
     setState(() => _loading = true);
     final orders = await _api.getBusinessOrders(widget.user.email);
-    if (mounted)
+    if (mounted) {
       setState(() {
         _allOrders = orders;
         _loading = false;
       });
+    }
   }
 
   // Siparişleri duruma göre filtrele
@@ -67,7 +68,8 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
           indicatorColor: Colors.deepOrange,
           tabs: [
             Tab(text: "Gelen (${_filterOrders(['Onay Bekliyor']).length})"),
-            Tab(text: "Mutfak (${_filterOrders(['Hazırlanıyor']).length})"),
+            Tab(text: "Mutfak(${_filterOrders(['Hazırlanıyor']).length})"),
+            Tab(text: "Kurye (${_filterOrders(['Yolda']).length})"),
             Tab(text: "Geçmiş"),
           ],
         ),
@@ -90,8 +92,10 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
                   isKitchen: true,
                 ),
 
+                _buildOrderList(_filterOrders(['Yolda']), isCourier: true),
+
                 _buildOrderList(
-                  _filterOrders(['Yolda', 'Teslim Edildi', 'İptal Edildi']),
+                  _filterOrders(['Teslim Edildi', 'İptal Edildi']),
                 ),
               ],
             ),
@@ -102,6 +106,7 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
     List<dynamic> orders, {
     bool isIncoming = false,
     bool isKitchen = false,
+    bool isCourier = false,
   }) {
     if (orders.isEmpty) {
       return Center(
@@ -125,6 +130,7 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
       itemBuilder: (context, index) {
         final order = orders[index];
         return Card(
+          color: Colors.white,
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -239,6 +245,23 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
                         ),
                         icon: const Icon(Icons.delivery_dining),
                         label: const Text("Kuryeye Teslim Et"),
+                      ),
+                    ),
+                  ),
+                if (isCourier)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () =>
+                            _quickUpdate(order['id'], "Teslim Edildi"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text("Teslim Edildi"),
                       ),
                     ),
                   ),
