@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   //Emulator: 10.0.2.2,
-  static const String baseUrl = "http://10.179.74.88:8000"; //A24
+  static const String baseUrl = "http://10.60.168.88:8000"; //A24
   //static const String baseUrl =
   //   "https://eaty-api-877604661855.europe-west1.run.app";
   // İşletme Kaydı
