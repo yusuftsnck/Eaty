@@ -56,9 +56,9 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
         _statusSaving = false;
         _isOpen = !value;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Durum güncellenemedi.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Durum güncellenemedi.')));
       return;
     }
 
@@ -68,7 +68,6 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       SnackBar(content: Text(value ? "$label açıldı" : "$label kapatıldı")),
     );
   }
-
 
   Future<void> _signOut(BuildContext context) async {
     try {
@@ -187,21 +186,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                   _refreshProfile();
                 },
               ),
-              const _ProfileTile(
-                icon: Icons.local_offer_outlined,
-                title: 'Kampanyalar',
-                subtitle: 'İndirimler ve kuponlar',
-              ),
-              const _ProfileTile(
-                icon: Icons.notifications_none,
-                title: 'Bildirimler',
-                subtitle: 'Anlık sipariş uyarıları',
-              ),
-              const _ProfileTile(
-                icon: Icons.security,
-                title: 'Güvenlik',
-                subtitle: 'Giriş ve yetkiler',
-              ),
+
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () => _signOut(context),
@@ -221,7 +206,6 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       ),
     );
   }
-
 }
 
 class _SectionTitle extends StatelessWidget {

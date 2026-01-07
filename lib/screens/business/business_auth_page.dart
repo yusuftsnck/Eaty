@@ -4,6 +4,7 @@ import 'package:eatyy/models/business_user.dart';
 import 'package:eatyy/screens/business/tabs/business_dashboard_page.dart';
 import 'package:eatyy/services/api_service.dart';
 import 'package:eatyy/services/business_session_service.dart';
+import 'package:eatyy/services/customer_profile_service.dart';
 import 'package:eatyy/services/session_role_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -623,13 +624,10 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
           ),
           LabeledField(
             label: 'Cep Telefonu',
-            hint: '0555 123 45 67',
+            hint: '0(5xx) xxx xx xx',
             controller: _phoneController,
             keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9\s\+\(\)\-]')),
-              LengthLimitingTextInputFormatter(16),
-            ],
+            inputFormatters: const [_TrPhoneFormatter()],
             validator: (v) {
               final r = _required(v, 'Cep Telefonu');
               if (r != null) return r;
@@ -859,6 +857,44 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TrPhoneFormatter extends TextInputFormatter {
+  const _TrPhoneFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (raw.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    var digits = raw;
+    if (!digits.startsWith('0')) {
+      if (digits.startsWith('5')) {
+        digits = '0$digits';
+      } else {
+        digits = '05$digits';
+      }
+    } else if (digits.length == 1) {
+      digits = '05';
+    } else if (digits.length >= 2 && digits[1] != '5') {
+      digits = '05${digits.substring(1)}';
+    }
+
+    if (digits.length > 11) {
+      digits = digits.substring(0, 11);
+    }
+
+    final formatted = formatTrPhone(digits);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

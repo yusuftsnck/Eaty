@@ -121,10 +121,6 @@ class _BusinessDashboardHomePageState extends State<BusinessDashboardHomePage> {
                       todayCount: _todayOrderCount,
                     ),
                     const SizedBox(height: 22),
-                    const _SectionTitle('Hızlı İşlemler'),
-                    const SizedBox(height: 12),
-                    const _QuickActionsGrid(),
-                    const SizedBox(height: 22),
                     const _SectionTitle('Son Siparişler'),
                     const SizedBox(height: 12),
                     _OrdersPreview(orders: _recentOrders),
@@ -412,84 +408,6 @@ class _StatCard extends StatelessWidget {
                   style: TextStyle(color: color, fontWeight: FontWeight.w600),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionsGrid extends StatelessWidget {
-  const _QuickActionsGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = [
-      _QuickAction(icon: Icons.fastfood, label: 'Menü'),
-      _QuickAction(icon: Icons.receipt_long, label: 'Siparişler'),
-      _QuickAction(icon: Icons.local_offer, label: 'Kampanyalar'),
-      _QuickAction(icon: Icons.analytics, label: 'Raporlar'),
-    ];
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: actions
-          .map(
-            (e) => SizedBox(
-              width: (MediaQuery.of(context).size.width - 16 * 2 - 12) / 2,
-              child: _QuickActionCard(action: e),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
-
-class _QuickAction {
-  final IconData icon;
-  final String label;
-  const _QuickAction({required this.icon, required this.label});
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final _QuickAction action;
-  const _QuickActionCard({required this.action});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF1E6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.all(10),
-            child: Icon(action.icon, color: const Color(0xFFE85B2B)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              action.label,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ),
         ],
