@@ -23,6 +23,8 @@ class BusinessAuthPage extends StatefulWidget {
 }
 
 class _BusinessAuthPageState extends State<BusinessAuthPage> {
+  static const _googleLogoAsset = 'assets/icon/google_logo.png';
+
   bool _isLogin = true;
   bool _loading = false;
   String? _error;
@@ -590,7 +592,7 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Google ile Giriş Yap'),
+                : _googleButtonChild('Google ile Giriş Yap'),
           ),
         ),
       ],
@@ -822,7 +824,7 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Google ile Kayıt Ol'),
+                  : _googleButtonChild('Google ile Kayıt Ol'),
             ),
           ),
         ],
@@ -839,6 +841,17 @@ class _BusinessAuthPageState extends State<BusinessAuthPage> {
           child: Text('veya', style: TextStyle(color: Colors.black54)),
         ),
         Expanded(child: Divider(height: 1)),
+      ],
+    );
+  }
+
+  Widget _googleButtonChild(String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(_googleLogoAsset, width: 18, height: 18),
+        const SizedBox(width: 10),
+        Text(label),
       ],
     );
   }

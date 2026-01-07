@@ -10,6 +10,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _googleLogoAsset = 'assets/icon/google_logo.png';
+
   bool _loading = false;
   String? _error;
   Timer? _failsafe;
@@ -53,6 +55,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  Widget _googleButtonChild(String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(_googleLogoAsset, width: 18, height: 18),
+        const SizedBox(width: 10),
+        Text(label),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,10 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFFF7A18),
-              Color(0xFFE60012),
-            ],
+            colors: [Color(0xFFFF7A18), Color(0xFFE60012)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -85,7 +95,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => BusinessAuthPage()),
+                            builder: (context) => BusinessAuthPage(),
+                          ),
                         );
                       },
                       child: const Padding(
@@ -128,10 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 8),
                         const Text(
                           'Hoş Geldiniz',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 16),
                         ),
                         const SizedBox(height: 42),
                         SizedBox(
@@ -141,8 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: Colors.black87,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: const StadiumBorder(),
                               elevation: 3,
                             ),
@@ -163,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Text('Giriş yapılıyor...'),
                                     ],
                                   )
-                                : const Text('Google ile Giriş Yap'),
+                                : _googleButtonChild('Google ile Devam Et'),
                           ),
                         ),
                         if (_error != null) ...[
@@ -178,10 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const Text(
                           'Giriş yaparak kullanım şartlarını kabul etmiş olursunuz',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
                     ),

@@ -1,7 +1,13 @@
+import 'dart:convert';
+
 import 'package:eatyy/models/user_address.dart';
 import 'package:eatyy/screens/addresses/map_picker_page.dart';
+import 'package:eatyy/screens/business/auth/models/tr_location_data.dart';
+import 'package:eatyy/screens/business/auth/widgets/dropdown_field.dart';
 import 'package:eatyy/services/address_service.dart';
+import 'package:eatyy/services/customer_profile_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -19,23 +25,27 @@ class _AddressFormPageState extends State<AddressFormPage> {
   final _labelCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _neighborhoodCtrl = TextEditingController();
-  final _districtCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  TrLocationData? _loc;
+  String? _selectedCity;
+  String? _selectedDistrict;
   LatLng? _selectedLocation;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _loadLocations();
     final initial = widget.initial;
     if (initial != null) {
       _labelCtrl.text = initial.label;
       _addressCtrl.text = initial.addressLine;
       _neighborhoodCtrl.text = initial.neighborhood;
-      _districtCtrl.text = initial.district;
-      _cityCtrl.text = initial.city;
+      final district = initial.district.trim();
+      _selectedDistrict = district.isNotEmpty ? district : null;
+      final city = initial.city.trim();
+      _selectedCity = city.isNotEmpty ? city : null;
       _noteCtrl.text = initial.note ?? '';
       _phoneCtrl.text = initial.phone ?? '';
       _selectedLocation = LatLng(initial.latitude, initial.longitude);
@@ -47,11 +57,38 @@ class _AddressFormPageState extends State<AddressFormPage> {
     _labelCtrl.dispose();
     _addressCtrl.dispose();
     _neighborhoodCtrl.dispose();
-    _districtCtrl.dispose();
-    _cityCtrl.dispose();
     _noteCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final raw = await rootBundle.loadString('assets/il_ilce.json');
+      final decoded = jsonDecode(raw);
+      final loc = TrLocationData.fromIlIlceJson(decoded);
+      if (!mounted) return;
+      setState(() {
+        _loc = loc;
+        final currentCity = _selectedCity?.trim() ?? '';
+        if (currentCity.isEmpty) {
+          _selectedCity = null;
+          _selectedDistrict = null;
+          return;
+        }
+        final matched = loc.cities.where((c) => c.name == currentCity).toList();
+        if (matched.isEmpty) {
+          _selectedCity = null;
+          _selectedDistrict = null;
+          return;
+        }
+        final districts = matched.first.districts.map((d) => d.name).toList();
+        final currentDistrict = _selectedDistrict?.trim() ?? '';
+        if (currentDistrict.isEmpty || !districts.contains(currentDistrict)) {
+          _selectedDistrict = null;
+        }
+      });
+    } catch (_) {}
   }
 
   void _applyPlacemark(Placemark place) {
@@ -64,11 +101,22 @@ class _AddressFormPageState extends State<AddressFormPage> {
     if (_neighborhoodCtrl.text.trim().isEmpty) {
       _neighborhoodCtrl.text = place.subLocality ?? '';
     }
-    if (_districtCtrl.text.trim().isEmpty) {
-      _districtCtrl.text = place.locality ?? '';
-    }
-    if (_cityCtrl.text.trim().isEmpty) {
-      _cityCtrl.text = place.administrativeArea ?? '';
+    final nextDistrict = _selectedDistrict?.trim().isNotEmpty == true
+        ? _selectedDistrict
+        : place.locality;
+    final nextCity = _selectedCity?.trim().isNotEmpty == true
+        ? _selectedCity
+        : place.administrativeArea;
+    final updatedDistrict = nextDistrict?.trim().isNotEmpty == true
+        ? nextDistrict
+        : null;
+    final updatedCity =
+        nextCity?.trim().isNotEmpty == true ? nextCity : null;
+    if (updatedDistrict != _selectedDistrict || updatedCity != _selectedCity) {
+      setState(() {
+        _selectedDistrict = updatedDistrict;
+        _selectedCity = updatedCity;
+      });
     }
   }
 
@@ -130,8 +178,8 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final label = _labelCtrl.text.trim();
     final addressLine = _addressCtrl.text.trim();
     final neighborhood = _neighborhoodCtrl.text.trim();
-    final district = _districtCtrl.text.trim();
-    final city = _cityCtrl.text.trim();
+    final district = (_selectedDistrict ?? '').trim();
+    final city = (_selectedCity ?? '').trim();
 
     if (label.isEmpty || addressLine.isEmpty || city.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -242,6 +290,21 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cities = _loc?.cities.map((c) => c.name).toList() ?? const <String>[];
+    final selectedCity = cities.contains(_selectedCity) ? _selectedCity : null;
+    TrCity? cityEntry;
+    if (selectedCity != null && _loc != null) {
+      final matches =
+          _loc!.cities.where((c) => c.name == selectedCity).toList();
+      if (matches.isNotEmpty) {
+        cityEntry = matches.first;
+      }
+    }
+    final districts =
+        cityEntry?.districts.map((d) => d.name).toList() ?? const <String>[];
+    final selectedDistrict =
+        districts.contains(_selectedDistrict) ? _selectedDistrict : null;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
@@ -256,11 +319,35 @@ class _AddressFormPageState extends State<AddressFormPage> {
           children: [
             _Field(label: 'Adres Başlığı', controller: _labelCtrl),
             _Field(label: 'Adres', controller: _addressCtrl),
+            DropdownField(
+              label: 'İl',
+              value: selectedCity,
+              hint: _loc == null ? 'Yükleniyor...' : 'İl seçin',
+              items: cities,
+              onChanged: (value) {
+                setState(() {
+                  _selectedCity = value;
+                  _selectedDistrict = null;
+                });
+              },
+            ),
+            DropdownField(
+              label: 'İlçe',
+              value: selectedDistrict,
+              hint: selectedCity == null ? 'Önce il seçin' : 'İlçe seçin',
+              items: districts,
+              onChanged: (value) {
+                setState(() => _selectedDistrict = value);
+              },
+            ),
             _Field(label: 'Mahalle', controller: _neighborhoodCtrl),
-            _Field(label: 'İlçe', controller: _districtCtrl),
-            _Field(label: 'İl', controller: _cityCtrl),
             _Field(label: 'Adres Notu', controller: _noteCtrl),
-            _Field(label: 'Telefon', controller: _phoneCtrl),
+            _Field(
+              label: 'Telefon',
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              inputFormatters: const [_TrPhoneFormatter()],
+            ),
             const SizedBox(height: 8),
             _buildMapPreview(),
             const SizedBox(height: 12),
@@ -327,16 +414,55 @@ class _AddressFormPageState extends State<AddressFormPage> {
   }
 }
 
+class _TrPhoneFormatter extends TextInputFormatter {
+  const _TrPhoneFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (raw.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    var digits = raw;
+    if (!digits.startsWith('0')) {
+      if (digits.startsWith('5')) {
+        digits = '0$digits';
+      } else {
+        digits = '05$digits';
+      }
+    } else if (digits.length == 1) {
+      digits = '05';
+    } else if (digits.length >= 2 && digits[1] != '5') {
+      digits = '05${digits.substring(1)}';
+    }
+
+    if (digits.length > 11) {
+      digits = digits.substring(0, 11);
+    }
+
+    final formatted = formatTrPhone(digits);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 class _Field extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _Field({
     required this.label,
     required this.controller,
-    // ignore: unused_element_parameter
     this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -354,6 +480,7 @@ class _Field extends StatelessWidget {
           TextField(
             controller: controller,
             keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,
