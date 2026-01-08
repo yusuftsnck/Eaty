@@ -6,9 +6,9 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   //Emulator: 10.0.2.2,
-  static const String baseUrl = "http://10.60.168.88:8000"; //A24
-  //static const String baseUrl =
-  //   "https://eaty-api-877604661855.europe-west1.run.app";
+  //static const String baseUrl = "http://10.60.168.88:8000"; //A24
+  static const String baseUrl =
+      "https://eaty-api-877604661855.europe-west1.run.app";
   // İşletme Kaydı
   Future<bool> registerBusiness(Map<String, dynamic> data) async {
     try {
@@ -189,11 +189,13 @@ class ApiService {
       if (comment != null && comment.trim().isNotEmpty) {
         payload["comment"] = comment.trim();
       }
-      final response = await http.post(
-        Uri.parse('$baseUrl/orders/$orderId/review'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 12));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/orders/$orderId/review'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 12));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
