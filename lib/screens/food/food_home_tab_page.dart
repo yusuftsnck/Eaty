@@ -37,6 +37,11 @@ class _FoodHomeTabPageState extends State<FoodHomeTabPage> {
     return '$minutes dk';
   }
 
+  String _formatRatingText(double? avg, int? count) {
+    if (avg == null || (count ?? 0) == 0) return 'Yeni';
+    return avg.toStringAsFixed(1);
+  }
+
   bool _isWithinRadius(dynamic biz, UserAddress address) {
     final lat = (biz['latitude'] as num?)?.toDouble();
     final lon = (biz['longitude'] as num?)?.toDouble();
@@ -159,6 +164,10 @@ class _FoodHomeTabPageState extends State<FoodHomeTabPage> {
     );
     final minText = _formatMinOrder(favorite.minOrderAmount, defaultMin);
     final imageUrl = favorite.photoUrl;
+    final ratingText = _formatRatingText(
+      favorite.ratingAvg,
+      favorite.ratingCount,
+    );
 
     final cardColor = isOpen ? Colors.white : Colors.grey.shade200;
     Widget heroImage = AppImage(
@@ -255,7 +264,7 @@ class _FoodHomeTabPageState extends State<FoodHomeTabPage> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _buildInfoChip(Icons.star, '4.3', Colors.green),
+                    _buildInfoChip(Icons.star, ratingText, Colors.green),
                     _buildInfoChip(
                       Icons.timer_outlined,
                       timeText,
@@ -358,6 +367,8 @@ class _FoodHomeTabPageState extends State<FoodHomeTabPage> {
                         ?.toDouble(),
                     deliveryTimeMins: (biz['delivery_time_mins'] as num?)
                         ?.toInt(),
+                    ratingAvg: (biz['rating_avg'] as num?)?.toDouble(),
+                    ratingCount: (biz['rating_count'] as num?)?.toInt(),
                   );
                   return _buildBusinessCard(
                     context,
@@ -376,6 +387,8 @@ class _FoodHomeTabPageState extends State<FoodHomeTabPage> {
                             isOpen: favorite.isOpen,
                             minOrderAmount: favorite.minOrderAmount,
                             deliveryTimeMins: favorite.deliveryTimeMins,
+                            ratingAvg: favorite.ratingAvg,
+                            ratingCount: favorite.ratingCount,
                             customerEmail: widget.customerEmail,
                           ),
                         ),

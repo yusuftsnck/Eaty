@@ -41,6 +41,11 @@ class FavoritesTabPage extends StatelessWidget {
     return '$minutes dk';
   }
 
+  String _formatRatingText(double? avg, int? count) {
+    if (avg == null || (count ?? 0) == 0) return 'Yeni';
+    return avg.toStringAsFixed(1);
+  }
+
   bool _isWithinRadius(dynamic biz, UserAddress address) {
     final lat = (biz['latitude'] as num?)?.toDouble();
     final lon = (biz['longitude'] as num?)?.toDouble();
@@ -146,6 +151,10 @@ class FavoritesTabPage extends StatelessWidget {
     );
     final minText = _formatMinOrder(business.minOrderAmount, defaultMin);
     final imageUrl = business.photoUrl;
+    final ratingText = _formatRatingText(
+      business.ratingAvg,
+      business.ratingCount,
+    );
 
     final cardColor = isOpen ? Colors.white : Colors.grey.shade200;
     Widget heroImage = AppImage(
@@ -242,7 +251,7 @@ class FavoritesTabPage extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _buildInfoChip(Icons.star, '4.3', Colors.green),
+                    _buildInfoChip(Icons.star, ratingText, Colors.green),
                     _buildInfoChip(
                       Icons.timer_outlined,
                       timeText,
@@ -282,6 +291,8 @@ class FavoritesTabPage extends StatelessWidget {
                           isOpen: business.isOpen,
                           minOrderAmount: business.minOrderAmount,
                           deliveryTimeMins: business.deliveryTimeMins,
+                          ratingAvg: business.ratingAvg,
+                          ratingCount: business.ratingCount,
                           customerEmail: customerEmail,
                         ),
                       ),
@@ -370,6 +381,12 @@ class FavoritesTabPage extends StatelessWidget {
                         deliveryTimeMins:
                             (biz['delivery_time_mins'] as num?)?.toInt() ??
                             favorite.deliveryTimeMins,
+                        ratingAvg:
+                            (biz['rating_avg'] as num?)?.toDouble() ??
+                            favorite.ratingAvg,
+                        ratingCount:
+                            (biz['rating_count'] as num?)?.toInt() ??
+                            favorite.ratingCount,
                       ),
                     );
                   }

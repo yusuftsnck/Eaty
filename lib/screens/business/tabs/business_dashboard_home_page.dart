@@ -1,5 +1,6 @@
 import 'package:eatyy/models/business_user.dart';
 import 'package:eatyy/services/api_service.dart';
+import 'package:eatyy/utils/time_utils.dart';
 import 'package:flutter/material.dart';
 
 class BusinessDashboardHomePage extends StatefulWidget {
@@ -44,12 +45,12 @@ class _BusinessDashboardHomePageState extends State<BusinessDashboardHomePage> {
     int preparing = 0;
     int delivered = 0;
 
-    final now = DateTime.now();
+    final now = nowInTurkey();
 
     for (var order in orders) {
       // Sipariş tarihini parse et
-      DateTime orderDate =
-          DateTime.tryParse(order['created_at']) ?? DateTime(2000);
+      final orderDate =
+          parseServerDateToTurkey(order['created_at']) ?? DateTime(2000);
 
       // Bugün mü kontrolü (Yıl, Ay, Gün eşitliği)
       bool isToday =

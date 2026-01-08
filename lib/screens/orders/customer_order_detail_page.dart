@@ -1,5 +1,6 @@
 import 'package:eatyy/widgets/app_image.dart';
 import 'package:flutter/material.dart';
+import 'package:eatyy/utils/time_utils.dart';
 
 class CustomerOrderDetailPage extends StatelessWidget {
   final dynamic order;
@@ -12,9 +13,7 @@ class CustomerOrderDetailPage extends StatelessWidget {
   });
 
   String _formatDate(dynamic value) {
-    final date = value is DateTime
-        ? value
-        : DateTime.tryParse(value?.toString() ?? '');
+    final date = parseServerDateToTurkey(value);
     if (date == null) return '-';
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');

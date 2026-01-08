@@ -1,5 +1,6 @@
 //static const String baseUrl = "http://10.255.131.88:8000";
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -60,6 +61,21 @@ class ApiService {
       print("Get Business Error: $e");
     }
     return null;
+  }
+
+  // İşletme Yorumları
+  Future<List<dynamic>> getBusinessReviews(int businessId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/business/$businessId/reviews'),
+      );
+      if (response.statusCode == 200) {
+        return List<dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      print("Get Business Reviews Error: $e");
+    }
+    return [];
   }
 
   //  Kategori Bazlı ürün ekleme
@@ -150,6 +166,43 @@ class ApiService {
       print("Get Customer Orders Error: $e");
     }
     return [];
+  }
+
+  // Sipariş Değerlendirme
+  Future<Map<String, dynamic>?> createOrderReview(
+    int orderId,
+    String customerEmail,
+    int rating, {
+    int? speedRating,
+    int? serviceRating,
+    int? tasteRating,
+    String? comment,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        "customer_email": customerEmail,
+        "rating": rating,
+      };
+      if (speedRating != null) payload["speed_rating"] = speedRating;
+      if (serviceRating != null) payload["service_rating"] = serviceRating;
+      if (tasteRating != null) payload["taste_rating"] = tasteRating;
+      if (comment != null && comment.trim().isNotEmpty) {
+        payload["comment"] = comment.trim();
+      }
+      final response = await http.post(
+        Uri.parse('$baseUrl/orders/$orderId/review'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 12));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } on TimeoutException {
+      print("Create Review Error: timeout");
+    } catch (e) {
+      print("Create Review Error: $e");
+    }
+    return null;
   }
 
   //  Ürün Güncelleme

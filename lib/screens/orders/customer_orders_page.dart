@@ -1,5 +1,7 @@
 import 'package:eatyy/screens/orders/customer_order_detail_page.dart';
+import 'package:eatyy/screens/orders/order_review_page.dart';
 import 'package:eatyy/services/api_service.dart';
+import 'package:eatyy/utils/time_utils.dart';
 import 'package:eatyy/widgets/app_image.dart';
 import 'package:flutter/material.dart';
 
@@ -23,15 +25,38 @@ class _CustomerOrdersPageState extends State<CustomerOrdersPage> {
   final _api = ApiService();
 
   String _formatDate(dynamic value) {
-    final date = value is DateTime
-        ? value
-        : DateTime.tryParse(value?.toString() ?? '');
+    final date = parseServerDateToTurkey(value);
     if (date == null) return '-';
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '$day.$month.${date.year} / $hour:$minute';
+  }
+
+  bool _isDeliveredStatus(String status) {
+    final normalized = status.trim().toLowerCase();
+    return normalized.contains('teslim');
+  }
+
+  Future<void> _openReviewPage(dynamic order) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderReviewPage(
+          order: order,
+          accentColor: widget.accentColor,
+          customerEmail: widget.customerEmail,
+          category: widget.category,
+        ),
+      ),
+    );
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Değerlendirmeniz alındı.')));
+      setState(() {});
+    }
   }
 
   @override
@@ -64,6 +89,8 @@ class _CustomerOrdersPageState extends State<CustomerOrdersPage> {
               final order = orders[index];
               final dateText = _formatDate(order['created_at']);
               final status = order['status']?.toString() ?? 'Onay Bekliyor';
+              final reviewed = order['reviewed'] == true;
+              final canReview = _isDeliveredStatus(status) && !reviewed;
               final businessName =
                   order['business_name']?.toString() ?? 'İşletme';
               final photoUrl = order['business_photo_url']?.toString();
@@ -75,6 +102,9 @@ class _CustomerOrdersPageState extends State<CustomerOrdersPage> {
                 dateText: dateText,
                 photoUrl: photoUrl,
                 businessAddress: businessAddress,
+                reviewed: reviewed,
+                reviewLabel: canReview ? 'Siparişi Değerlendir' : null,
+                onReview: canReview ? () => _openReviewPage(order) : null,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -102,6 +132,9 @@ class _OrderCard extends StatelessWidget {
   final String dateText;
   final String? photoUrl;
   final String? businessAddress;
+  final bool reviewed;
+  final String? reviewLabel;
+  final VoidCallback? onReview;
   final VoidCallback onTap;
 
   const _OrderCard({
@@ -111,6 +144,9 @@ class _OrderCard extends StatelessWidget {
     required this.dateText,
     required this.photoUrl,
     required this.businessAddress,
+    required this.reviewed,
+    required this.reviewLabel,
+    required this.onReview,
     required this.onTap,
   });
 
@@ -215,6 +251,29 @@ class _OrderCard extends StatelessWidget {
                     const Icon(Icons.chevron_right, color: Colors.black38),
                   ],
                 ),
+                if (onReview != null || reviewed) ...[
+                  const SizedBox(height: 12),
+                  if (onReview != null)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onReview,
+                        icon: const Icon(Icons.star_border),
+                        label: Text(reviewLabel ?? 'Değerlendir'),
+                      ),
+                    )
+                  else
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle, color: Colors.green, size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          'Değerlendirildi',
+                          style: TextStyle(color: Colors.green),
+                        ),
+                      ],
+                    ),
+                ],
               ],
             ),
           ),

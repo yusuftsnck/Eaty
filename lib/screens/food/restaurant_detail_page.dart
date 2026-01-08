@@ -1,5 +1,6 @@
 import 'package:eatyy/screens/cart/cart_page.dart';
 import 'package:eatyy/screens/food/restaurant_info_page.dart';
+import 'package:eatyy/screens/reviews/business_reviews_page.dart';
 import 'package:eatyy/services/api_service.dart';
 import 'package:eatyy/services/cart_service.dart';
 import 'package:eatyy/services/favorites_service.dart';
@@ -16,6 +17,8 @@ class RestaurantDetailPage extends StatefulWidget {
   final bool? isOpen;
   final double? minOrderAmount;
   final int? deliveryTimeMins;
+  final double? ratingAvg;
+  final int? ratingCount;
   final String? customerEmail;
   const RestaurantDetailPage({
     super.key,
@@ -28,6 +31,8 @@ class RestaurantDetailPage extends StatefulWidget {
     this.isOpen,
     this.minOrderAmount,
     this.deliveryTimeMins,
+    this.ratingAvg,
+    this.ratingCount,
     this.customerEmail,
   });
 
@@ -196,6 +201,22 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
     );
   }
 
+  void _openReviews() {
+    final label = widget.category == 'market' ? 'Market' : 'Restoran';
+    final accentColor =
+        widget.category == 'market' ? Colors.green : Colors.deepOrange;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BusinessReviewsPage(
+          businessId: widget.businessId,
+          businessLabel: label,
+          accentColor: accentColor,
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoChip(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -335,6 +356,15 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
     final minText = minAmount != null
         ? 'Min ${_formatPrice(minAmount).replaceAll(' TL', '')} TL'
         : (isMarket ? 'Min 80 TL' : 'Min 100 TL');
+    final ratingAvg =
+        (_profile?['rating_avg'] as num?)?.toDouble() ?? widget.ratingAvg;
+    final ratingCount =
+        (_profile?['rating_count'] as num?)?.toInt() ??
+        widget.ratingCount ??
+        0;
+    final hasRating = ratingAvg != null && ratingCount > 0;
+    final ratingText = hasRating ? ratingAvg.toStringAsFixed(1) : 'Yeni';
+    final ratingCountText = hasRating ? '$ratingCount' : '0';
     final address =
         _profile?['open_address']?.toString() ??
         _profile?['address']?.toString() ??
@@ -425,6 +455,8 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                         isOpen: widget.isOpen,
                         minOrderAmount: minAmount,
                         deliveryTimeMins: deliveryMins,
+                        ratingAvg: ratingAvg,
+                        ratingCount: ratingCount,
                       );
                       return IconButton(
                         icon: Icon(
@@ -515,20 +547,24 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
-                          children: const [
-                            Icon(Icons.star, size: 16, color: Colors.green),
-                            SizedBox(width: 4),
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 16,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
-                              '4.3',
-                              style: TextStyle(
+                              ratingText,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: Colors.green,
                               ),
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Text(
-                              '250+',
-                              style: TextStyle(
+                              ratingCountText,
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.black54,
                               ),
@@ -626,8 +662,40 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage> {
                         minText,
                         Colors.blueGrey,
                       ),
-                      _buildInfoChip(Icons.star, '4.3', Colors.green),
+                      _buildInfoChip(Icons.star, ratingText, Colors.green),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: _openReviews,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Yorumlar ($ratingCountText)',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const Spacer(),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: Colors.black38,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 10),
                 ],

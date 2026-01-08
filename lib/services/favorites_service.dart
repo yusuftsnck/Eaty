@@ -13,6 +13,8 @@ class FavoriteBusiness {
   final bool? isOpen;
   final double? minOrderAmount;
   final int? deliveryTimeMins;
+  final double? ratingAvg;
+  final int? ratingCount;
 
   const FavoriteBusiness({
     required this.id,
@@ -24,6 +26,8 @@ class FavoriteBusiness {
     this.isOpen,
     this.minOrderAmount,
     this.deliveryTimeMins,
+    this.ratingAvg,
+    this.ratingCount,
   });
 
   factory FavoriteBusiness.fromJson(Map<String, dynamic> json) {
@@ -37,6 +41,8 @@ class FavoriteBusiness {
       isOpen: json['is_open'] as bool?,
       minOrderAmount: (json['min_order_amount'] as num?)?.toDouble(),
       deliveryTimeMins: (json['delivery_time_mins'] as num?)?.toInt(),
+      ratingAvg: (json['rating_avg'] as num?)?.toDouble(),
+      ratingCount: (json['rating_count'] as num?)?.toInt(),
     );
   }
 
@@ -51,6 +57,8 @@ class FavoriteBusiness {
       'is_open': isOpen,
       'min_order_amount': minOrderAmount,
       'delivery_time_mins': deliveryTimeMins,
+      'rating_avg': ratingAvg,
+      'rating_count': ratingCount,
     };
   }
 }

@@ -2,6 +2,7 @@ import 'package:eatyy/screens/business/business_order_detail_page.dart';
 import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:eatyy/models/business_user.dart';
+import 'package:eatyy/utils/time_utils.dart';
 
 class BusinessOrdersPage extends StatefulWidget {
   final BusinessUser user;
@@ -39,6 +40,14 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
   // Siparişleri duruma göre filtrele
   List<dynamic> _filterOrders(List<String> statuses) {
     return _allOrders.where((o) => statuses.contains(o['status'])).toList();
+  }
+
+  String _formatOrderTime(dynamic value) {
+    final date = parseServerDateToTurkey(value);
+    if (date == null) return '--:--';
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   Future<void> _quickUpdate(int orderId, String status) async {
@@ -163,7 +172,7 @@ class _BusinessOrdersPageState extends State<BusinessOrdersPage>
                             ),
                           ),
                           Text(
-                            order['created_at'].toString().substring(11, 16),
+                            _formatOrderTime(order['created_at']),
                             style: const TextStyle(
                               color: Colors.grey,
                               fontSize: 13,

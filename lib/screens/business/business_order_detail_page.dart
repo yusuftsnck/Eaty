@@ -1,6 +1,7 @@
 import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:eatyy/utils/time_utils.dart';
 
 class BusinessOrderDetailPage extends StatefulWidget {
   final dynamic order;
@@ -54,7 +55,8 @@ class _BusinessOrderDetailPageState extends State<BusinessOrderDetailPage> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final date = DateTime.tryParse(order['created_at']) ?? DateTime.now();
+    final date =
+        parseServerDateToTurkey(order['created_at']) ?? nowInTurkey();
     final formattedDate = DateFormat('dd.MM.yyyy HH:mm').format(date);
     final items = order['items'] as List<dynamic>? ?? [];
 
