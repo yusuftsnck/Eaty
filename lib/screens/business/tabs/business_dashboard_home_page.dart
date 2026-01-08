@@ -488,7 +488,7 @@ class _OrdersPreview extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            order['customer_email'] ?? 'Müşteri',
+                            order['customer_name'] ?? 'Müşteri',
                             style: const TextStyle(
                               color: Colors.black54,
                               fontSize: 12,

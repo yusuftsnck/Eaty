@@ -65,6 +65,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
     await CustomerProfileService.instance.updateProfile(
       name: name,
       phoneDigits: digits.isEmpty ? null : digits,
+      email: widget.user.email,
     );
     if (!mounted) return;
     setState(() => _saving = false);

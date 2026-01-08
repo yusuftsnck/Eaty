@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:eatyy/services/api_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -39,6 +41,7 @@ class CustomerProfileService {
   static final CustomerProfileService instance = CustomerProfileService._();
 
   final ValueNotifier<CustomerProfile?> profile = ValueNotifier(null);
+  final ApiService _api = ApiService();
 
   SharedPreferences? _prefs;
   String? _currentKey;
@@ -49,15 +52,17 @@ class CustomerProfileService {
 
   Future<void> setUser(String? email) async {
     _prefs ??= await SharedPreferences.getInstance();
-    if (email == null || email.trim().isEmpty) {
+    final trimmedEmail = email?.trim();
+    if (trimmedEmail == null || trimmedEmail.isEmpty) {
       _currentKey = null;
       profile.value = null;
       return;
     }
-    final key = _buildKey(email);
+    final key = _buildKey(trimmedEmail);
     if (_currentKey == key) return;
     _currentKey = key;
     await _loadFromPrefs(key);
+    unawaited(_syncRemoteProfile(trimmedEmail, key));
   }
 
   String _buildKey(String email) {
@@ -84,9 +89,90 @@ class CustomerProfileService {
     }
   }
 
-  Future<void> updateProfile({String? name, String? phoneDigits}) async {
+  CustomerProfile? _profileFromRemote(Map<String, dynamic> data) {
+    final rawName = data['name']?.toString();
+    final rawPhone = data['phone']?.toString();
+    final name = rawName?.trim();
+    final phone = rawPhone?.trim();
+    final hasName = name != null && name.isNotEmpty;
+    final hasPhone = phone != null && phone.isNotEmpty;
+    if (!hasName && !hasPhone) return null;
+    return CustomerProfile(
+      name: hasName ? name : null,
+      phoneDigits: hasPhone ? phone : null,
+    );
+  }
+
+  CustomerProfile _mergeProfiles(
+    CustomerProfile local,
+    CustomerProfile remote,
+  ) {
+    final localName = local.name?.trim();
+    final localPhone = local.phoneDigits?.trim();
+    return CustomerProfile(
+      name: (localName != null && localName.isNotEmpty)
+          ? localName
+          : remote.name,
+      phoneDigits: (localPhone != null && localPhone.isNotEmpty)
+          ? localPhone
+          : remote.phoneDigits,
+    );
+  }
+
+  bool _profilesMatch(CustomerProfile? a, CustomerProfile? b) {
+    final nameA = a?.name?.trim() ?? '';
+    final nameB = b?.name?.trim() ?? '';
+    final phoneA = a?.phoneDigits?.trim() ?? '';
+    final phoneB = b?.phoneDigits?.trim() ?? '';
+    return nameA == nameB && phoneA == phoneB;
+  }
+
+  Future<void> _saveToPrefs(String key, CustomerProfile updated) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.setString(key, jsonEncode(updated.toJson()));
+  }
+
+  Future<void> _syncRemoteProfile(String email, String key) async {
+    final remoteData = await _api.getCustomerProfile(email);
+    if (_currentKey != key) return;
+    final local = profile.value;
+
+    if (remoteData == null) {
+      final name = local?.name?.trim();
+      if (name != null && name.isNotEmpty) {
+        final phone = local?.phoneDigits ?? '';
+        await _api.updateCustomerProfile(email, name: name, phone: phone);
+      }
+      return;
+    }
+
+    final remoteProfile = _profileFromRemote(remoteData);
+    if (remoteProfile == null) return;
+
+    if (local == null) {
+      profile.value = remoteProfile;
+      await _saveToPrefs(key, remoteProfile);
+      return;
+    }
+
+    final merged = _mergeProfiles(local, remoteProfile);
+    if (_profilesMatch(local, merged)) return;
+    profile.value = merged;
+    await _saveToPrefs(key, merged);
+  }
+
+  Future<void> updateProfile({
+    String? name,
+    String? phoneDigits,
+    String? email,
+  }) async {
+    final resolvedEmail = email?.trim();
+    if (resolvedEmail != null && resolvedEmail.isNotEmpty) {
+      await setUser(resolvedEmail);
+    }
     final key = _currentKey;
     if (key == null) return;
+    final previous = profile.value;
     final trimmedName = name?.trim();
     final trimmedPhone = phoneDigits?.trim();
     final hasName = trimmedName != null && trimmedName.isNotEmpty;
@@ -102,8 +188,23 @@ class CustomerProfileService {
       phoneDigits: hasPhone ? trimmedPhone : null,
     );
     profile.value = updated;
-    final prefs = _prefs ?? await SharedPreferences.getInstance();
-    await prefs.setString(key, jsonEncode(updated.toJson()));
+    await _saveToPrefs(key, updated);
+
+    if (resolvedEmail != null && resolvedEmail.isNotEmpty) {
+      final remoteName = updated.name?.trim() ?? previous?.name?.trim();
+      if (remoteName != null && remoteName.isNotEmpty) {
+        final remotePhone = hasPhone
+            ? (trimmedPhone)
+            : (updated.phoneDigits ?? '');
+        unawaited(
+          _api.updateCustomerProfile(
+            resolvedEmail,
+            name: remoteName,
+            phone: remotePhone,
+          ),
+        );
+      }
+    }
   }
 }
 

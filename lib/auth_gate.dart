@@ -4,6 +4,7 @@ import 'package:eatyy/screens/home_page.dart';
 import 'package:eatyy/screens/login/login_screen.dart';
 import 'package:eatyy/screens/business/business_auth_page.dart';
 import 'package:eatyy/screens/business/tabs/business_dashboard_page.dart';
+import 'package:eatyy/services/address_service.dart';
 import 'package:eatyy/services/business_session_service.dart';
 import 'package:eatyy/services/customer_profile_service.dart';
 import 'package:eatyy/services/customer_session_service.dart';
@@ -60,6 +61,7 @@ class _AuthGateState extends State<AuthGate> {
             await CustomerSessionService.instance.setUser(appUser);
             await FavoritesService.instance.setUser(appUser.email);
             await CustomerProfileService.instance.setUser(appUser.email);
+            await AddressService.instance.setUser(appUser.email);
             if (activeRole != 'business') {
               await SessionRoleService.instance.setRole('customer');
             }
@@ -72,6 +74,7 @@ class _AuthGateState extends State<AuthGate> {
             await CustomerSessionService.instance.setUser(null);
             await FavoritesService.instance.setUser(null);
             await CustomerProfileService.instance.setUser(null);
+            await AddressService.instance.setUser(null);
             if (businessUser == null) {
               await SessionRoleService.instance.setRole(null);
             } else {
@@ -100,6 +103,7 @@ class _AuthGateState extends State<AuthGate> {
         await CustomerSessionService.instance.setUser(appUser);
         await FavoritesService.instance.setUser(appUser.email);
         await CustomerProfileService.instance.setUser(appUser.email);
+        await AddressService.instance.setUser(appUser.email);
         if (_role != 'business' && _role != null) {
           await SessionRoleService.instance.setRole('customer');
           _role = 'customer';
@@ -113,6 +117,7 @@ class _AuthGateState extends State<AuthGate> {
         if (cached != null) {
           await FavoritesService.instance.setUser(cached.email);
           await CustomerProfileService.instance.setUser(cached.email);
+          await AddressService.instance.setUser(cached.email);
           if (_role != 'business' && _role != null) {
             await SessionRoleService.instance.setRole('customer');
             _role = 'customer';
@@ -120,6 +125,7 @@ class _AuthGateState extends State<AuthGate> {
         } else {
           await FavoritesService.instance.setUser(null);
           await CustomerProfileService.instance.setUser(null);
+          await AddressService.instance.setUser(null);
         }
         setState(() {
           _user = cached;
@@ -130,6 +136,7 @@ class _AuthGateState extends State<AuthGate> {
       await CustomerSessionService.instance.setUser(null);
       await FavoritesService.instance.setUser(null);
       await CustomerProfileService.instance.setUser(null);
+      await AddressService.instance.setUser(null);
       await SessionRoleService.instance.setRole(null);
       setState(() => _initialized = true);
     }

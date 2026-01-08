@@ -327,6 +327,90 @@ class ApiService {
     }
   }
 
+  // Customer profile (name/phone)
+  Future<Map<String, dynamic>?> getCustomerProfile(String email) async {
+    try {
+      final safeEmail = Uri.encodeComponent(email.trim());
+      final response = await http.get(
+        Uri.parse("$baseUrl/customers/$safeEmail/profile"),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      if (response.statusCode == 404) {
+        return null;
+      }
+    } catch (e) {
+      print("Get Customer Profile Error: $e");
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> updateCustomerProfile(
+    String email, {
+    String? name,
+    String? phone,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (name != null) payload["name"] = name;
+    if (phone != null) payload["phone"] = phone;
+    if (payload.isEmpty) return null;
+
+    try {
+      final safeEmail = Uri.encodeComponent(email.trim());
+      final response = await http.put(
+        Uri.parse("$baseUrl/customers/$safeEmail/profile"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      print("Customer Profile Update Error: $e");
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>?> getCustomerAddresses(String email) async {
+    try {
+      final safeEmail = Uri.encodeComponent(email.trim());
+      final response = await http.get(
+        Uri.parse("$baseUrl/customers/$safeEmail/addresses"),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print("Get Customer Addresses Error: $e");
+    }
+    return null;
+  }
+
+  Future<bool> updateCustomerAddresses(
+    String email,
+    List<Map<String, dynamic>> addresses,
+  ) async {
+    try {
+      final safeEmail = Uri.encodeComponent(email.trim());
+      final response = await http.put(
+        Uri.parse("$baseUrl/customers/$safeEmail/addresses"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(addresses),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Update Customer Addresses Error: $e");
+      return false;
+    }
+  }
+
   // Kategori Sıralamasını Güncelleme
   Future<bool> updateCategoryOrder(
     String email,

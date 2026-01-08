@@ -1,6 +1,9 @@
+import 'package:eatyy/models/user_address.dart';
 import 'package:eatyy/services/address_service.dart';
 import 'package:eatyy/services/api_service.dart';
 import 'package:eatyy/services/cart_service.dart';
+import 'package:eatyy/services/customer_profile_service.dart';
+import 'package:eatyy/services/customer_session_service.dart';
 import 'package:flutter/material.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -15,10 +18,7 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   final _api = ApiService();
-  final _addressCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
-  bool _ringBell = true;
-  bool _contactless = false;
   String _paymentMethod = 'Kredi Kartı';
   bool _saving = false;
 
@@ -29,17 +29,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       : const Color(0xFFE53935);
 
   @override
-  void initState() {
-    super.initState();
-    final selected = AddressService.instance.selected.value;
-    if (selected != null) {
-      _addressCtrl.text = selected.fullAddress;
-    }
-  }
-
-  @override
   void dispose() {
-    _addressCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -59,8 +49,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    final address = _addressCtrl.text.trim();
-    if (address.isEmpty) {
+    final selectedAddress = AddressService.instance.selected.value;
+    final address = selectedAddress?.fullAddress.trim() ?? '';
+    if (selectedAddress == null || address.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Teslimat adresi gerekli.')));
@@ -68,6 +59,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     final email = widget.customerEmail ?? 'guest@eaty.app';
+    final profile = CustomerProfileService.instance.profile.value;
+    final session = CustomerSessionService.instance.user.value;
+    final profileName = profile?.name?.trim();
+    final fallbackName = session?.displayName?.trim();
+    final customerName = (profileName != null && profileName.isNotEmpty)
+        ? profileName
+        : (fallbackName != null && fallbackName.isNotEmpty
+              ? fallbackName
+              : null);
+    final profilePhone = (profile?.formattedPhone ?? profile?.phoneDigits)
+        ?.trim();
+    final addressPhone = selectedAddress.phone?.trim();
+    final customerPhone = (profilePhone != null && profilePhone.isNotEmpty)
+        ? profilePhone
+        : (addressPhone != null && addressPhone.isNotEmpty
+              ? addressPhone
+              : null);
+    final note = _noteCtrl.text.trim();
 
     final items = cart.items
         .map(
@@ -80,13 +89,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
         .toList();
 
     setState(() => _saving = true);
-    final success = await _api.placeOrder({
+    final payload = {
       'business_id': cart.business!.id,
       'customer_email': email,
       'customer_address': address,
       'total_price': cart.total,
       'items': items,
-    });
+    };
+    if (customerName != null && customerName.isNotEmpty) {
+      payload['customer_name'] = customerName;
+    }
+    if (customerPhone != null && customerPhone.isNotEmpty) {
+      payload['customer_phone'] = customerPhone;
+    }
+    if (note.isNotEmpty) {
+      payload['customer_note'] = note;
+    }
+
+    final success = await _api.placeOrder(payload);
 
     if (!mounted) return;
     setState(() => _saving = false);
@@ -134,116 +154,96 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final totalText = _formatPrice(cart.total);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('Siparişi Tamamla'),
         backgroundColor: _headerColor,
         foregroundColor: Colors.white,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
-        children: [
-          _SectionTitle('Teslimat Adresin'),
-          const SizedBox(height: 8),
-          _Card(
-            child: Column(
-              children: [
-                TextField(
-                  controller: _addressCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    hintText: 'Adresini gir',
-                    border: OutlineInputBorder(),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+          children: [
+            _SectionTitle('Teslimat Adresin'),
+            const SizedBox(height: 8),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ValueListenableBuilder<UserAddress?>(
+                    valueListenable: AddressService.instance.selected,
+                    builder: (context, selected, _) {
+                      final addressText =
+                          selected?.fullAddress ?? 'Adres seçilmedi';
+                      final color = selected == null
+                          ? Colors.redAccent
+                          : Colors.black87;
+                      return Text(addressText, style: TextStyle(color: color));
+                    },
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ToggleTile(
-                        label: 'Zili Çalma',
-                        value: _ringBell,
-                        onChanged: (value) {
-                          setState(() => _ringBell = value);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ToggleTile(
-                        label: 'Temassız Teslimat',
-                        value: _contactless,
-                        onChanged: (value) {
-                          setState(() => _contactless = value);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _SectionTitle('Ödeme Yöntemin'),
-          const SizedBox(height: 8),
-          _Card(
-            child: Column(
-              children: [
-                _PaymentOption(
-                  title: 'Kredi Kartı',
-                  value: _paymentMethod,
-                  onChanged: (value) => setState(() => _paymentMethod = value),
-                ),
-                const Divider(height: 16),
-                _PaymentOption(
-                  title: 'Nakit',
-                  value: _paymentMethod,
-                  onChanged: (value) => setState(() => _paymentMethod = value),
-                ),
-                const Divider(height: 16),
-                _PaymentOption(
-                  title: 'Online Ödeme',
-                  value: _paymentMethod,
-                  onChanged: (value) => setState(() => _paymentMethod = value),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _SectionTitle('Sipariş Notu'),
-          const SizedBox(height: 8),
-          _Card(
-            child: TextField(
-              controller: _noteCtrl,
-              maxLength: 300,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Sipariş notu ekle',
-                border: OutlineInputBorder(),
+                  const SizedBox(height: 10),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _SectionTitle('Sipariş Özeti'),
-          const SizedBox(height: 8),
-          _Card(
-            child: Column(
-              children: [
-                _SummaryRow(
-                  label: 'Sepetimdeki Ürünler',
-                  value: '${cart.totalItems} adet',
-                ),
-                const Divider(height: 16),
-                _SummaryRow(label: 'Sipariş Tutarı', value: '$totalText TL'),
-                const Divider(height: 16),
-                const _SummaryRow(
-                  label: 'Teslimat Ücreti',
-                  value: 'Ücretsiz Teslimat',
-                  valueColor: Colors.green,
-                ),
-              ],
+            const SizedBox(height: 16),
+            _SectionTitle('Ödeme Yöntemin'),
+            const SizedBox(height: 8),
+            _Card(
+              child: Column(
+                children: [
+                  _PaymentOption(
+                    title: 'Kredi Kartı',
+                    value: _paymentMethod,
+                    onChanged: (value) =>
+                        setState(() => _paymentMethod = value),
+                  ),
+                  const Divider(height: 16),
+                  _PaymentOption(
+                    title: 'Nakit',
+                    value: _paymentMethod,
+                    onChanged: (value) =>
+                        setState(() => _paymentMethod = value),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            _SectionTitle('Sipariş Notu'),
+            const SizedBox(height: 8),
+            _Card(
+              child: TextField(
+                controller: _noteCtrl,
+                maxLength: 300,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Sipariş notu ekle',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionTitle('Sipariş Özeti'),
+            const SizedBox(height: 8),
+            _Card(
+              child: Column(
+                children: [
+                  _SummaryRow(
+                    label: 'Sepetimdeki Ürünler',
+                    value: '${cart.totalItems} adet',
+                  ),
+                  const Divider(height: 16),
+                  _SummaryRow(label: 'Sipariş Tutarı', value: '$totalText TL'),
+                  const Divider(height: 16),
+                  const _SummaryRow(
+                    label: 'Teslimat Ücreti',
+                    value: 'Ücretsiz Teslimat',
+                    valueColor: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -344,39 +344,6 @@ class _Card extends StatelessWidget {
         ],
       ),
       child: child,
-    );
-  }
-}
-
-class _ToggleTile extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ToggleTile({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.deepOrange,
-          ),
-        ],
-      ),
     );
   }
 }

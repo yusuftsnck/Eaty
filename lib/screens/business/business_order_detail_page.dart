@@ -59,6 +59,11 @@ class _BusinessOrderDetailPageState extends State<BusinessOrderDetailPage> {
         parseServerDateToTurkey(order['created_at']) ?? nowInTurkey();
     final formattedDate = DateFormat('dd.MM.yyyy HH:mm').format(date);
     final items = order['items'] as List<dynamic>? ?? [];
+    final customerName = _formatValue(order['customer_name'], 'Belirtilmedi');
+    final customerPhone = _formatValue(order['customer_phone'], 'Belirtilmedi');
+    final customerNote = _formatValue(order['customer_note'], 'Not yok');
+    final customerAddress =
+        _formatValue(order['customer_address'], 'Adres girilmedi');
 
     return Scaffold(
       appBar: AppBar(
@@ -122,14 +127,26 @@ class _BusinessOrderDetailPageState extends State<BusinessOrderDetailPage> {
                 children: [
                   _buildInfoRow(
                     Icons.person,
-                    "E-posta",
-                    order['customer_email'],
+                    "İsim Soyisim",
+                    customerName,
+                  ),
+                  const Divider(height: 24),
+                  _buildInfoRow(
+                    Icons.phone,
+                    "Telefon",
+                    customerPhone,
                   ),
                   const Divider(height: 24),
                   _buildInfoRow(
                     Icons.location_on,
                     "Adres",
-                    order['customer_address'] ?? "Adres girilmedi",
+                    customerAddress,
+                  ),
+                  const Divider(height: 24),
+                  _buildInfoRow(
+                    Icons.sticky_note_2_outlined,
+                    "Sipariş Notu",
+                    customerNote,
                   ),
                   const Divider(height: 24),
                   _buildInfoRow(Icons.calendar_today, "Tarih", formattedDate),
@@ -213,6 +230,11 @@ class _BusinessOrderDetailPageState extends State<BusinessOrderDetailPage> {
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
+  }
+
+  String _formatValue(dynamic value, String fallback) {
+    final text = value?.toString().trim() ?? '';
+    return text.isNotEmpty ? text : fallback;
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
