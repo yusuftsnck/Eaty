@@ -171,6 +171,7 @@ class RecipeRepository extends ChangeNotifier {
     if (response == null) return null;
     final updated = RecipeNotebook.fromApi(response);
     _insertOrUpdateNotebook(updated);
+    _updateRecipeSaves(recipe, 1);
     notifyListeners();
     return updated;
   }
@@ -186,6 +187,7 @@ class RecipeRepository extends ChangeNotifier {
     if (response == null) return null;
     final updated = RecipeNotebook.fromApi(response);
     _insertOrUpdateNotebook(updated);
+    _updateRecipeSaves(recipe, -1);
     notifyListeners();
     return updated;
   }
@@ -312,6 +314,13 @@ class RecipeRepository extends ChangeNotifier {
         recipeIds: notebook.recipeIds.where((id) => id != recipeId).toList(),
       );
     }
+  }
+
+  void _updateRecipeSaves(Recipe recipe, int delta) {
+    final next = recipe.saves + delta;
+    final updated = recipe.copyWith(saves: next < 0 ? 0 : next);
+    _insertOrUpdate(_communityRecipes, updated);
+    _insertOrUpdate(_myRecipes, updated);
   }
 
 }

@@ -121,7 +121,7 @@ class Recipe {
       method: json['method']?.toString() ?? 'Fırın',
       likes: (json['likes'] as num?)?.toInt() ?? 0,
       comments: (json['comments'] as num?)?.toInt() ?? 0,
-      saves: 0,
+      saves: (json['saves'] as num?)?.toInt() ?? 0,
       isLiked: json['is_liked'] == true,
       createdAt: createdAt,
     );

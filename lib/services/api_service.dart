@@ -430,6 +430,50 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>?> getRecipeComments(int recipeId) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/recipes/$recipeId/comments"),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print("Get Recipe Comments Error: $e");
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> addRecipeComment(
+    int recipeId, {
+    required String comment,
+    String? authorName,
+    String? authorEmail,
+  }) async {
+    final payload = <String, dynamic>{'comment': comment};
+    if (authorName != null) payload['author_name'] = authorName;
+    if (authorEmail != null) payload['author_email'] = authorEmail;
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/recipes/$recipeId/comments"),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      print("Add Recipe Comment Error: $e");
+    }
+    return null;
+  }
+
   // Tarif Ekleme
   Future<Map<String, dynamic>?> createRecipe(
     Map<String, dynamic> payload,
