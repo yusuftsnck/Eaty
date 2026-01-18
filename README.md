@@ -1,96 +1,79 @@
-# Eaty - Integrated Food, Grocery, and AI-Powered Recipe Platform
+# Eaty: Integrated Food, Grocery, & AI-Powered Recipe Ecosystem
 
-![Eaty Banner](https://via.placeholder.com/1000x300?text=Eaty+Super+App) > **"All in One" Ecosystem:** Unified Food Delivery, Grocery Shopping, and AI Kitchen Assistant.
+**Eaty** is a comprehensive mobile application developed under the "Super App" concept. It is designed to unify three fundamental daily nutritional needs—ordering ready-to-eat food, grocery shopping, and generating recipes via AI—under a single, cohesive platform.
 
-## 📋 Executive Summary
-[cite_start]**Eaty** is a comprehensive mobile application developed under the "Super App" concept[cite: 29]. [cite_start]It addresses the fragmented user experience of modern nutritional needs by unifying food ordering, grocery shopping, and recipe generation under a single roof[cite: 31].
+By leveraging **Google Cloud** technologies and **Gemini AI**, Eaty aims to eliminate the fragmented experience of switching between multiple apps while providing a scalable, cloud-based infrastructure for businesses to manage digitalization, menus, and orders.
 
-[cite_start]Powered by **Google Cloud** technologies and **Gemini AI**, Eaty provides a scalable solution for end-users (B2C) while offering a robust management dashboard for businesses (B2B)[cite: 30, 32].
+## 📖 Table of Contents
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Key Features](#key-features)
+  - [Consumer Module (B2C)](#consumer-module-b2c)
+  - [Business Module (B2B)](#business-module-b2b)
+- [Technology Stack](#technology-stack)
+- [System Architecture](#system-architecture)
+- [Future Roadmap](#future-roadmap)
 
----
+## 🧩 The Problem
+Modern mobile users often face a disconnected experience when managing their nutrition:
+1.  **Fragmented Ecosystem:** Users are forced to switch between different apps for food delivery, grocery shopping, and finding recipes.
+2.  **Decision Fatigue:** Users often struggle with the question, "What can I cook with the ingredients I have at home?"
+3.  **Business Inefficiency:** Restaurants and markets often face complex menu management processes and high digitalization barriers.
+
+## 💡 The Solution
+Eaty bridges the gap by offering a unified ecosystem:
+* **Ready-to-Eat Food:** Fast ordering from partnered restaurants.
+* **Grocery Shopping:** Quick procurement of essential food and daily needs.
+* **AI Kitchen Assistant:** An intelligent agent that analyzes ingredients (via text or photo) to generate personalized cooking recipes.
 
 ## 🚀 Key Features
 
-### 📱 Consumer Module (B2C)
-The consumer-facing application focuses on ease of use and smart decision-making.
-* [cite_start]**Unified Marketplace:** Seamlessly switch between ordering ready-to-eat meals from restaurants and buying fresh produce from markets[cite: 40].
-* **AI Chef (Gemini Powered):** Solves "decision fatigue" by generating personalized recipes based on ingredients you currently have. [cite_start]Supports **image recognition** (take a photo of ingredients) and text input[cite: 41, 65].
-* [cite_start]**Recipe Social Network:** Create personal "Recipe Notebooks," share your own culinary creations, and save community recipes[cite: 77, 653].
-* [cite_start]**Real-Time Order Tracking:** Monitor order status instantly (Preparing -> With Courier -> Delivered)[cite: 75].
-* [cite_start]**Dynamic Cart:** Easy addition/removal of products and secure checkout[cite: 73].
+### Consumer Module (B2C)
+* **Dual Marketplace:** Browse and order from both Restaurants and Grocery Markets within the same interface.
+* **AI Chef (Gemini Powered):**
+    * **Input:** Enter an ingredient list or snap a photo of the items in your fridge.
+    * **Processing:** The app uses Gemini AI for image recognition and Natural Language Processing.
+    * **Output:** Receive personalized recipe suggestions and step-by-step cooking instructions.
+* **Recipe Social Network:**
+    * Share your own culinary creations.
+    * Create "Recipe Notebooks" to save favorite recipes from the community.
+* **Live Order Tracking:** Real-time status updates (Preparing, With Courier, Delivered).
+* **Dynamic Cart:** Seamlessly manage products and payments.
 
-### 💼 Business Module (B2B)
-A professional dashboard designed for restaurants and markets to manage operations efficiently.
-* [cite_start]**Order Lifecycle Management:** Single-screen workflow to Approve/Reject orders, hand over to the kitchen, and assign to couriers[cite: 84, 85].
-* [cite_start]**Menu Engineering:** Drag-and-drop sorting, easy category management, and photo uploads directly from the device[cite: 80, 82].
-* [cite_start]**Business Analytics:** Dashboard providing a graphical summary of daily revenue, total delivered orders, and active order status[cite: 79].
-* [cite_start]**Quick Actions:** One-tap toggle for "Open/Closed" status and operating hours management[cite: 88].
+### Business Module (B2B)
+A dedicated dashboard for Restaurant and Market partners:
+* **Order Lifecycle Management:** A streamlined flow to Approve/Reject orders, send them to the Kitchen, and assign them to Couriers.
+* **Menu Management:** Drag-and-drop product sorting, category management, and easy image uploading.
+* **Business Analytics:** Graphical summaries of daily revenue, total orders, and active order statuses.
+* **Profile Control:** One-tap toggle to open or close the business and update operating hours.
 
----
+## 🛠 Technology Stack
 
-## 🛠 Technology Stack & Architecture
+The project is built on a modern, cloud-native stack ensuring scalability and performance.
 
-[cite_start]Eaty relies on a modern, stateless, cloud-native architecture[cite: 90].
-
-| Component | Technology | Details |
+| Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Mobile Framework** | Flutter (Dart) | [cite_start]Cross-platform Android application[cite: 52]. |
-| **Backend API** | Python (FastAPI) | [cite_start]High-performance RESTful API[cite: 55]. |
-| **Database** | PostgreSQL | [cite_start]Hosted on **Google Cloud SQL**[cite: 59]. |
-| **Cloud Infrastructure**| Google Cloud Run | [cite_start]Containerized (Docker), auto-scaling architecture[cite: 60]. |
-| **Artificial Intelligence**| Google Gemini API | [cite_start]Image processing & NLP for recipe generation[cite: 64]. |
-| **Authentication** | Firebase | [cite_start]Google Sign-In & Firebase Auth integration[cite: 67]. |
+| **Mobile App** | **Flutter** (Dart) | Cross-platform frontend application. |
+| **Backend API** | **Python** (FastAPI) | High-performance, asynchronous RESTful API. |
+| **Database** | **PostgreSQL** | Relational database hosted on **Google Cloud SQL**. |
+| **Cloud Service** | **Google Cloud Run** | Containerized, stateless architecture with auto-scaling. |
+| **AI Service** | **Google Gemini API** | Powers the recipe generation and image analysis features. |
+| **Auth** | **Firebase** | Handles Authentication and Google Sign-In. |
 
-### System Architecture
-The mobile client communicates via JSON/REST with the FastAPI backend hosted on Cloud Run. [cite_start]The backend handles logic, connects to PostgreSQL via Unix Sockets, and interfaces with the Gemini API for AI requests[cite: 90, 91].
+## 🏗 System Architecture
+Eaty utilizes a **Stateless Backend Architecture**:
+1.  **Client:** The Flutter mobile app sends REST/JSON requests via the API Gateway.
+2.  **Server:** Python FastAPI runs inside Docker containers on Google Cloud Run.
+3.  **Data:** The backend communicates with the PostgreSQL database via secure Unix Sockets.
+4.  **AI:** Requests for recipe generation are offloaded to the external Google Gemini API.
 
----
-
-## 📸 Screenshots
-
-| Login & Home | AI Chef | Restaurant Menu | Business Dashboard |
-|:---:|:---:|:---:|:---:|
-| <img src="path/to/login_screen.png" width="200"> | <img src="path/to/ai_chef.png" width="200"> | <img src="path/to/menu_screen.png" width="200"> | <img src="path/to/dashboard.png" width="200"> |
----
+This structure allows the system to auto-scale based on traffic density while maintaining data integrity.
 
 ## 🔮 Future Roadmap
-* [cite_start]**Multi-Language Support:** Expanding to English and Arabic for international markets[cite: 96].
-* [cite_start]**Health-Focused AI:** Recipe filtering based on user allergies and diet history[cite: 97].
-* [cite_start]**Live Logistics:** Real-time courier tracking integration on maps[cite: 98].
+* **Multi-Language Support:** Expanding the platform to support English and Arabic for international markets.
+* **Health-Focused AI:** Advanced personalization to filter recipe suggestions based on user allergies and diet history.
+* **Live Courier Tracking:** Integration with map services to show the courier's real-time location.
 
 ---
 
-## 💿 Installation & Setup
-
-### Prerequisites
-* Flutter SDK
-* Python 3.9+
-* Docker (optional for backend containerization)
-* Google Cloud Project (with Gemini API & Cloud SQL enabled)
-
-### Running the App
-1.  **Clone the repository**
-    ```bash
-    git clone [https://github.com/yusuftsnck/Eaty.git](https://github.com/yusuftsnck/Eaty.git)
-    ```
-2.  **Backend Setup**
-    ```bash
-    cd backend
-    pip install -r requirements.txt
-    uvicorn main:app --reload
-    ```
-3.  **Mobile Setup**
-    ```bash
-    cd mobile
-    flutter pub get
-    flutter run
-    ```
-    *(Note: Ensure you create a `.env` file with your API Keys for Firebase and Gemini)*
-
----
-
-
-
-## 📞 Contact
-* [cite_start]**Email:** yusuf.tsnck@gmail.com [cite: 845]
-* [cite_start]**GitHub:** [github.com/yusuftsnck](https://github.com/yusuftsnck) [cite: 7]
+**Project By:** Yusuf Şaban Tosuncuk
