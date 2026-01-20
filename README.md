@@ -1,11 +1,8 @@
-<div align="center">
 
-<img src="docs/assets/banner.png" alt="Eaty Banner" width="100%" />
 
 # 🍊 Eaty  
 ## Integrated Food, Grocery & AI Ecosystem  
 
-</div>
 
 ---
 
