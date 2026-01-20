@@ -1,9 +1,7 @@
-<div align="center">
 
-<img src="docs/assets/banner.png" alt="Eaty Banner" width="100%" />
 
-# 🍊 Eaty
-### Integrated Food, Grocery & AI Ecosystem
+#  Eaty
+### Integrated Food, Grocery & AI Ecosystem  "All in One"
 
 **A modern, cloud-native super app that unifies food delivery, grocery shopping, and AI-powered recipe generation.**
 
@@ -84,24 +82,8 @@ graph LR
 
 ---
 
-## 📱 Screenshots
-
-<div align="center">
-<table>
-<tr>
-<td align="center"><b>Home</b></td>
-<td align="center"><b>AI Recipe Assistant</b></td>
-<td align="center"><b>Business Dashboard</b></td>
-<td align="center"><b>Orders</b></td>
-</tr>
-<tr>
-<td><img src="docs/assets/home.png" width="200"/></td>
-<td><img src="docs/assets/ai_chef.png" width="200"/></td>
-<td><img src="docs/assets/dashboard.png" width="200"/></td>
-<td><img src="docs/assets/orders.png" width="200"/></td>
-</tr>
-</table>
-</div>
+## 📱 website
+https://yusuftsnck.github.io/website/ 
 
 ---
 
@@ -134,7 +116,6 @@ flutter pub get
 flutter run
 ```
 
-> `google-services.json` must be placed in `android/app/`
 
 ---
 
@@ -153,10 +134,7 @@ flutter run
 Software Engineering Student  
 
 🔗 GitHub: https://github.com/yusuftsnck  
-🔗 Project: https://github.com/yusuftsnck/Eaty
 
 ---
 
-<div align="center">
-<sub>Built with ❤️ as a modern full-stack & AI-powered mobile application.</sub>
-</div>
+
