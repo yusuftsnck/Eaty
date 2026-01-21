@@ -6,7 +6,8 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   //Emulator: 10.0.2.2,
-  //static const String baseUrl = "http://10.60.168.88:8000"; //A24
+  // FOR LOCAL USAGE USE YOUR LOCAL IP ADRESS (open terminal and write this command "ipconfig")
+  //static const String baseUrl = "http://LocalIP:8000"; 
   static const String baseUrl =
       "https://eaty-api-877604661855.europe-west1.run.app";
   // İşletme Kaydı
